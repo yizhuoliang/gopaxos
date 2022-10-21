@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+option go_package = "./";
+
+package gopaxos;
+
+// the service replicas provide to clients
+service ClientReplica {
+    rpc Reqeust (Command) returns (Response) {}
+}
+
+service ReplicaLeader {
+    rpc Propose (Proposal) returns (Decision) {}
+    rpc Check (Empty) returns (Decision){}
+}
+
+service ScottAcceptor {
+    rpc Scouting (P1a) returns (P1b) {}
+}
+
+service CommanderAcceptor {
+    rpc Commanding (P2a) returns (P2b) {}
+}
+
+message Command {
+    int32 clientId = 1;
+    int32 commandId = 2;
+    string operation = 3;
+}
+
+// should not send response to client until the command's slot is decided
+message Response {
+    int32 commandId = 1;
+}
+
+message Proposal {
+    int32 slotNumber = 1;
+    Command command = 2;
+}
+
+// Why we need to send the entire command message?
+// because a replica may receive decisions not in its command pool
+message Decision {
+    bool valid = 1;
+    int32 slotNumber = 2;
+    Command command = 3;
+}
+
+message BSC {
+    int32 ballotNumber = 1;
+    int32 slotNumber = 2;
+    Command command = 3;
+}
+
+message P1a {
+    int32 leaderId = 1;
+    int32 ballotNumber = 2;
+}
+
+message P1b {
+    int32 acceptorId = 1;
+    int32 ballotNumber = 2;
+    repeated BSC accepted = 3;
+}
+
+message P2a {
+    int32 leaderId = 1;
+    BSC bsc = 2;
+}
+
+message P2b {
+    int32 acceptorId = 1;
+    int32 ballotNumber = 2;
+}
+
+message Empty {
+    string content = 1;
+}
