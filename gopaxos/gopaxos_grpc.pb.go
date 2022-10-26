@@ -22,7 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ClientReplicaClient interface {
-	Reqeust(ctx context.Context, in *Command, opts ...grpc.CallOption) (*Response, error)
+	Reqeust(ctx context.Context, in *Command, opts ...grpc.CallOption) (*Empty, error)
+	Collect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Responses, error)
 }
 
 type clientReplicaClient struct {
@@ -33,9 +34,18 @@ func NewClientReplicaClient(cc grpc.ClientConnInterface) ClientReplicaClient {
 	return &clientReplicaClient{cc}
 }
 
-func (c *clientReplicaClient) Reqeust(ctx context.Context, in *Command, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
+func (c *clientReplicaClient) Reqeust(ctx context.Context, in *Command, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
 	err := c.cc.Invoke(ctx, "/gopaxos.ClientReplica/Reqeust", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *clientReplicaClient) Collect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Responses, error) {
+	out := new(Responses)
+	err := c.cc.Invoke(ctx, "/gopaxos.ClientReplica/Collect", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +56,8 @@ func (c *clientReplicaClient) Reqeust(ctx context.Context, in *Command, opts ...
 // All implementations must embed UnimplementedClientReplicaServer
 // for forward compatibility
 type ClientReplicaServer interface {
-	Reqeust(context.Context, *Command) (*Response, error)
+	Reqeust(context.Context, *Command) (*Empty, error)
+	Collect(context.Context, *Empty) (*Responses, error)
 	mustEmbedUnimplementedClientReplicaServer()
 }
 
@@ -54,8 +65,11 @@ type ClientReplicaServer interface {
 type UnimplementedClientReplicaServer struct {
 }
 
-func (UnimplementedClientReplicaServer) Reqeust(context.Context, *Command) (*Response, error) {
+func (UnimplementedClientReplicaServer) Reqeust(context.Context, *Command) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Reqeust not implemented")
+}
+func (UnimplementedClientReplicaServer) Collect(context.Context, *Empty) (*Responses, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Collect not implemented")
 }
 func (UnimplementedClientReplicaServer) mustEmbedUnimplementedClientReplicaServer() {}
 
@@ -88,6 +102,24 @@ func _ClientReplica_Reqeust_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ClientReplica_Collect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClientReplicaServer).Collect(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gopaxos.ClientReplica/Collect",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClientReplicaServer).Collect(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ClientReplica_ServiceDesc is the grpc.ServiceDesc for ClientReplica service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -99,6 +131,10 @@ var ClientReplica_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Reqeust",
 			Handler:    _ClientReplica_Reqeust_Handler,
 		},
+		{
+			MethodName: "Collect",
+			Handler:    _ClientReplica_Collect_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "gopaxos.proto",
@@ -108,8 +144,8 @@ var ClientReplica_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ReplicaLeaderClient interface {
-	Propose(ctx context.Context, in *Proposal, opts ...grpc.CallOption) (*Decision, error)
-	Check(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Decision, error)
+	Propose(ctx context.Context, in *Proposal, opts ...grpc.CallOption) (*Empty, error)
+	Collect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Decisions, error)
 }
 
 type replicaLeaderClient struct {
@@ -120,8 +156,8 @@ func NewReplicaLeaderClient(cc grpc.ClientConnInterface) ReplicaLeaderClient {
 	return &replicaLeaderClient{cc}
 }
 
-func (c *replicaLeaderClient) Propose(ctx context.Context, in *Proposal, opts ...grpc.CallOption) (*Decision, error) {
-	out := new(Decision)
+func (c *replicaLeaderClient) Propose(ctx context.Context, in *Proposal, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
 	err := c.cc.Invoke(ctx, "/gopaxos.ReplicaLeader/Propose", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -129,9 +165,9 @@ func (c *replicaLeaderClient) Propose(ctx context.Context, in *Proposal, opts ..
 	return out, nil
 }
 
-func (c *replicaLeaderClient) Check(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Decision, error) {
-	out := new(Decision)
-	err := c.cc.Invoke(ctx, "/gopaxos.ReplicaLeader/Check", in, out, opts...)
+func (c *replicaLeaderClient) Collect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Decisions, error) {
+	out := new(Decisions)
+	err := c.cc.Invoke(ctx, "/gopaxos.ReplicaLeader/Collect", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -142,8 +178,8 @@ func (c *replicaLeaderClient) Check(ctx context.Context, in *Empty, opts ...grpc
 // All implementations must embed UnimplementedReplicaLeaderServer
 // for forward compatibility
 type ReplicaLeaderServer interface {
-	Propose(context.Context, *Proposal) (*Decision, error)
-	Check(context.Context, *Empty) (*Decision, error)
+	Propose(context.Context, *Proposal) (*Empty, error)
+	Collect(context.Context, *Empty) (*Decisions, error)
 	mustEmbedUnimplementedReplicaLeaderServer()
 }
 
@@ -151,11 +187,11 @@ type ReplicaLeaderServer interface {
 type UnimplementedReplicaLeaderServer struct {
 }
 
-func (UnimplementedReplicaLeaderServer) Propose(context.Context, *Proposal) (*Decision, error) {
+func (UnimplementedReplicaLeaderServer) Propose(context.Context, *Proposal) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Propose not implemented")
 }
-func (UnimplementedReplicaLeaderServer) Check(context.Context, *Empty) (*Decision, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Check not implemented")
+func (UnimplementedReplicaLeaderServer) Collect(context.Context, *Empty) (*Decisions, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Collect not implemented")
 }
 func (UnimplementedReplicaLeaderServer) mustEmbedUnimplementedReplicaLeaderServer() {}
 
@@ -188,20 +224,20 @@ func _ReplicaLeader_Propose_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ReplicaLeader_Check_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ReplicaLeader_Collect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ReplicaLeaderServer).Check(ctx, in)
+		return srv.(ReplicaLeaderServer).Collect(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/gopaxos.ReplicaLeader/Check",
+		FullMethod: "/gopaxos.ReplicaLeader/Collect",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReplicaLeaderServer).Check(ctx, req.(*Empty))
+		return srv.(ReplicaLeaderServer).Collect(ctx, req.(*Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -218,8 +254,8 @@ var ReplicaLeader_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ReplicaLeader_Propose_Handler,
 		},
 		{
-			MethodName: "Check",
-			Handler:    _ReplicaLeader_Check_Handler,
+			MethodName: "Collect",
+			Handler:    _ReplicaLeader_Collect_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -230,7 +266,8 @@ var ReplicaLeader_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ScottAcceptorClient interface {
-	Scouting(ctx context.Context, in *P1A, opts ...grpc.CallOption) (*P1B, error)
+	Scouting(ctx context.Context, in *P1A, opts ...grpc.CallOption) (*Empty, error)
+	Collect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*P1B, error)
 }
 
 type scottAcceptorClient struct {
@@ -241,9 +278,18 @@ func NewScottAcceptorClient(cc grpc.ClientConnInterface) ScottAcceptorClient {
 	return &scottAcceptorClient{cc}
 }
 
-func (c *scottAcceptorClient) Scouting(ctx context.Context, in *P1A, opts ...grpc.CallOption) (*P1B, error) {
-	out := new(P1B)
+func (c *scottAcceptorClient) Scouting(ctx context.Context, in *P1A, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
 	err := c.cc.Invoke(ctx, "/gopaxos.ScottAcceptor/Scouting", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *scottAcceptorClient) Collect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*P1B, error) {
+	out := new(P1B)
+	err := c.cc.Invoke(ctx, "/gopaxos.ScottAcceptor/Collect", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +300,8 @@ func (c *scottAcceptorClient) Scouting(ctx context.Context, in *P1A, opts ...grp
 // All implementations must embed UnimplementedScottAcceptorServer
 // for forward compatibility
 type ScottAcceptorServer interface {
-	Scouting(context.Context, *P1A) (*P1B, error)
+	Scouting(context.Context, *P1A) (*Empty, error)
+	Collect(context.Context, *Empty) (*P1B, error)
 	mustEmbedUnimplementedScottAcceptorServer()
 }
 
@@ -262,8 +309,11 @@ type ScottAcceptorServer interface {
 type UnimplementedScottAcceptorServer struct {
 }
 
-func (UnimplementedScottAcceptorServer) Scouting(context.Context, *P1A) (*P1B, error) {
+func (UnimplementedScottAcceptorServer) Scouting(context.Context, *P1A) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Scouting not implemented")
+}
+func (UnimplementedScottAcceptorServer) Collect(context.Context, *Empty) (*P1B, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Collect not implemented")
 }
 func (UnimplementedScottAcceptorServer) mustEmbedUnimplementedScottAcceptorServer() {}
 
@@ -296,6 +346,24 @@ func _ScottAcceptor_Scouting_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ScottAcceptor_Collect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ScottAcceptorServer).Collect(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gopaxos.ScottAcceptor/Collect",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ScottAcceptorServer).Collect(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ScottAcceptor_ServiceDesc is the grpc.ServiceDesc for ScottAcceptor service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -307,6 +375,10 @@ var ScottAcceptor_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Scouting",
 			Handler:    _ScottAcceptor_Scouting_Handler,
 		},
+		{
+			MethodName: "Collect",
+			Handler:    _ScottAcceptor_Collect_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "gopaxos.proto",
@@ -316,7 +388,8 @@ var ScottAcceptor_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CommanderAcceptorClient interface {
-	Commanding(ctx context.Context, in *P2A, opts ...grpc.CallOption) (*P2B, error)
+	Commanding(ctx context.Context, in *P2A, opts ...grpc.CallOption) (*Empty, error)
+	Collect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*P2B, error)
 }
 
 type commanderAcceptorClient struct {
@@ -327,9 +400,18 @@ func NewCommanderAcceptorClient(cc grpc.ClientConnInterface) CommanderAcceptorCl
 	return &commanderAcceptorClient{cc}
 }
 
-func (c *commanderAcceptorClient) Commanding(ctx context.Context, in *P2A, opts ...grpc.CallOption) (*P2B, error) {
-	out := new(P2B)
+func (c *commanderAcceptorClient) Commanding(ctx context.Context, in *P2A, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
 	err := c.cc.Invoke(ctx, "/gopaxos.CommanderAcceptor/Commanding", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *commanderAcceptorClient) Collect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*P2B, error) {
+	out := new(P2B)
+	err := c.cc.Invoke(ctx, "/gopaxos.CommanderAcceptor/Collect", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -340,7 +422,8 @@ func (c *commanderAcceptorClient) Commanding(ctx context.Context, in *P2A, opts 
 // All implementations must embed UnimplementedCommanderAcceptorServer
 // for forward compatibility
 type CommanderAcceptorServer interface {
-	Commanding(context.Context, *P2A) (*P2B, error)
+	Commanding(context.Context, *P2A) (*Empty, error)
+	Collect(context.Context, *Empty) (*P2B, error)
 	mustEmbedUnimplementedCommanderAcceptorServer()
 }
 
@@ -348,8 +431,11 @@ type CommanderAcceptorServer interface {
 type UnimplementedCommanderAcceptorServer struct {
 }
 
-func (UnimplementedCommanderAcceptorServer) Commanding(context.Context, *P2A) (*P2B, error) {
+func (UnimplementedCommanderAcceptorServer) Commanding(context.Context, *P2A) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Commanding not implemented")
+}
+func (UnimplementedCommanderAcceptorServer) Collect(context.Context, *Empty) (*P2B, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Collect not implemented")
 }
 func (UnimplementedCommanderAcceptorServer) mustEmbedUnimplementedCommanderAcceptorServer() {}
 
@@ -382,6 +468,24 @@ func _CommanderAcceptor_Commanding_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CommanderAcceptor_Collect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CommanderAcceptorServer).Collect(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gopaxos.CommanderAcceptor/Collect",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CommanderAcceptorServer).Collect(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CommanderAcceptor_ServiceDesc is the grpc.ServiceDesc for CommanderAcceptor service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -392,6 +496,10 @@ var CommanderAcceptor_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Commanding",
 			Handler:    _CommanderAcceptor_Commanding_Handler,
+		},
+		{
+			MethodName: "Collect",
+			Handler:    _CommanderAcceptor_Collect_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
