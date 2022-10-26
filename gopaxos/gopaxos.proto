@@ -6,12 +6,13 @@ package gopaxos;
 
 // the service replicas provide to clients
 service ClientReplica {
-    rpc Reqeust (Command) returns (Response) {}
+    rpc Reqeust (Command) returns (Empty) {}
+    rpc Collect (Empty) returns (Responses) {}
 }
 
 service ReplicaLeader {
     rpc Propose (Proposal) returns (Decision) {}
-    rpc Check (Empty) returns (Decision){}
+    rpc Collect (Empty) returns (Decision){}
 }
 
 service ScottAcceptor {
@@ -33,6 +34,11 @@ message Response {
     int32 commandId = 1;
 }
 
+message Responses {
+    bool valid = 1;
+    repeated Response responses = 2;
+}
+
 message Proposal {
     int32 slotNumber = 1;
     Command command = 2;
@@ -41,9 +47,13 @@ message Proposal {
 // Why we need to send the entire command message?
 // because a replica may receive decisions not in its command pool
 message Decision {
+    int32 slotNumber = 1;
+    Command command = 2;
+}
+
+message Decisions {
     bool valid = 1;
-    int32 slotNumber = 2;
-    Command command = 3;
+    repeated Decision decisions = 2;
 }
 
 message BSC {
