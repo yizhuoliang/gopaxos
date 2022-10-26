@@ -1,4 +1,4 @@
-module gozab
+module gopaxos
 
 go 1.18
 
