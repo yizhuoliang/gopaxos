@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	pb "gopaxos/gopaxos"
@@ -18,7 +19,7 @@ const (
 )
 
 var (
-	clientId       string
+	clientId       int64
 	replicaPorts   = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
 	commandBuffer  [replicaNum]chan *pb.Command
 	responseBuffer chan *pb.Responses
@@ -26,7 +27,7 @@ var (
 
 func main() {
 	// input client id
-	clientId = os.Args[1]
+	clientId, _ = strconv.ParseInt(os.Args[1], 10, 32)
 
 	// initialize command channels for messenger routines
 	for i := 0; i < replicaNum; i++ {
@@ -66,8 +67,9 @@ func MessengerRoutine(serial int) {
 	c := pb.NewClientReplicaClient(conn)
 
 	for {
-
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		r, err := c.Reqeust(ctx, &pb.Command{ClientId: int32(clientId), CommandId: -1, Operation: "op"})
 	}
 }
 
