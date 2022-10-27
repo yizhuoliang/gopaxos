@@ -81,5 +81,27 @@ func MessengerRoutine(serial int) {
 }
 
 func CollectorRoutine(serial int) {
+	conn, err := grpc.Dial(replicaPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("failed to connect: %v", err)
+		return
+	}
+	defer conn.Close()
 
+	c := pb.NewClientReplicaClient(conn)
+
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		r, err := c.Collect(ctx, &pb.Empty{Content: "checking responses"})
+		if err != nil {
+			log.Printf("failed to collect: %v", err)
+		}
+		// print commandId of responded requests
+		if r.Valid {
+			for _, response := range r.Responses {
+				log.Printf("Command %s is responded", response.CommandId)
+			}
+		}
+	}
 }
