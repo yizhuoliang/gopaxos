@@ -4,6 +4,7 @@ import (
 	"context"
 	pb "gopaxos/gopaxos"
 	"log"
+	"net"
 	"os"
 	"strconv"
 	"time"
@@ -18,15 +19,17 @@ const (
 )
 
 var (
-	replicaId int64
+	replicaId int32
+	server    *grpc.Server
 
-	state       string
-	slot_in     int32 = 1
-	slot_out    int32 = 1
-	requests    []*pb.Command
-	proposals   []*pb.Proposal
-	decisions   []*pb.Decision
-	leaderPorts = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
+	state        string
+	slot_in      int32 = 1
+	slot_out     int32 = 1
+	requests     []*pb.Command
+	proposals    []*pb.Proposal
+	decisions    []*pb.Decision
+	leaderPorts  = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
+	replicaPorts = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
 
 	responses []*pb.Response
 )
@@ -36,14 +39,35 @@ type replicaServer struct {
 }
 
 func main() {
-	replicaId, _ = strconv.ParseInt(os.Args[1], 10, 32)
+	temp, _ := strconv.Atoi(os.Args[1])
+	replicaId = int32(temp)
 
 	for i := 0; i < leaderNum; i++ {
 		go MessengerRoutine(i)
 		go CollectorRoutine(i)
 	}
+
+	go serve(replicaPorts[replicaId])
+
+	preventExit := make(chan int32, 1)
+	<-preventExit
 }
 
+func serve(port string) {
+	// listen leader on port
+	lis, err := net.Listen("tcp", port)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	log.Printf("server listening at %v", lis.Addr())
+	server = grpc.NewServer()
+	pb.RegisterClientReplicaServer(server, &replicaServer{})
+	if err := server.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
+}
+
+// routines
 func MessengerRoutine(serial int) {
 	conn, err := grpc.Dial(leaderPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -58,19 +82,18 @@ func MessengerRoutine(serial int) {
 	for slot_in < slot_out+WINDOW && len(requests) != 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		r, err := c.Propose(ctx, &pb.Proposal{SlotNumber: slot_in, Command: nil})
+		c.Propose(ctx, &pb.Proposal{SlotNumber: slot_in, Command: nil})
 	}
 }
-
 func CollectorRoutine(serial int) {
 
 }
 
+// handlers
 func (s *replicaServer) Request(ctx context.Context, in *pb.Command) (*pb.Empty, error) {
 	requests = append(requests, in)
 	return &pb.Empty{Content: "success"}, nil
 }
-
 func (s *replicaServer) Collect(ctx context.Context, in *pb.Empty) (*pb.Responses, error) {
 	return &pb.Responses{Valid: true, Responses: responses}, nil
 }
