@@ -27,7 +27,7 @@ service CommanderAcceptor {
 
 message Command {
     int32 clientId = 1;
-    int32 commandId = 2;
+    string commandId = 2;
     string operation = 3;
 }
 
@@ -75,11 +75,6 @@ message P1b {
     repeated BSC accepted = 3;
 }
 
-message P1bs {
-    bool valid = 1;
-    repeated P1b p1bs = 2;
-}
-
 message P2a {
     int32 leaderId = 1;
     BSC bsc = 2;
@@ -88,11 +83,6 @@ message P2a {
 message P2b {
     int32 acceptorId = 1;
     int32 ballotNumber = 2;
-}
-
-message P2bs {
-    bool valid = 1;
-    repeated P2b p2bs = 2;
 }
 
 message Empty {

@@ -26,7 +26,7 @@ type Command struct {
 	unknownFields protoimpl.UnknownFields
 
 	ClientId  int32  `protobuf:"varint,1,opt,name=clientId,proto3" json:"clientId,omitempty"`
-	CommandId int32  `protobuf:"varint,2,opt,name=commandId,proto3" json:"commandId,omitempty"`
+	CommandId string `protobuf:"bytes,2,opt,name=commandId,proto3" json:"commandId,omitempty"`
 	Operation string `protobuf:"bytes,3,opt,name=operation,proto3" json:"operation,omitempty"`
 }
 
@@ -69,11 +69,11 @@ func (x *Command) GetClientId() int32 {
 	return 0
 }
 
-func (x *Command) GetCommandId() int32 {
+func (x *Command) GetCommandId() string {
 	if x != nil {
 		return x.CommandId
 	}
-	return 0
+	return ""
 }
 
 func (x *Command) GetOperation() string {
@@ -534,61 +534,6 @@ func (x *P1B) GetAccepted() []*BSC {
 	return nil
 }
 
-type P1Bs struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Valid bool   `protobuf:"varint,1,opt,name=valid,proto3" json:"valid,omitempty"`
-	P1Bs  []*P1B `protobuf:"bytes,2,rep,name=p1bs,proto3" json:"p1bs,omitempty"`
-}
-
-func (x *P1Bs) Reset() {
-	*x = P1Bs{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_gopaxos_proto_msgTypes[9]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *P1Bs) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*P1Bs) ProtoMessage() {}
-
-func (x *P1Bs) ProtoReflect() protoreflect.Message {
-	mi := &file_gopaxos_proto_msgTypes[9]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use P1Bs.ProtoReflect.Descriptor instead.
-func (*P1Bs) Descriptor() ([]byte, []int) {
-	return file_gopaxos_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *P1Bs) GetValid() bool {
-	if x != nil {
-		return x.Valid
-	}
-	return false
-}
-
-func (x *P1Bs) GetP1Bs() []*P1B {
-	if x != nil {
-		return x.P1Bs
-	}
-	return nil
-}
-
 type P2A struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -601,7 +546,7 @@ type P2A struct {
 func (x *P2A) Reset() {
 	*x = P2A{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_gopaxos_proto_msgTypes[10]
+		mi := &file_gopaxos_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -614,7 +559,7 @@ func (x *P2A) String() string {
 func (*P2A) ProtoMessage() {}
 
 func (x *P2A) ProtoReflect() protoreflect.Message {
-	mi := &file_gopaxos_proto_msgTypes[10]
+	mi := &file_gopaxos_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -627,7 +572,7 @@ func (x *P2A) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use P2A.ProtoReflect.Descriptor instead.
 func (*P2A) Descriptor() ([]byte, []int) {
-	return file_gopaxos_proto_rawDescGZIP(), []int{10}
+	return file_gopaxos_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *P2A) GetLeaderId() int32 {
@@ -656,7 +601,7 @@ type P2B struct {
 func (x *P2B) Reset() {
 	*x = P2B{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_gopaxos_proto_msgTypes[11]
+		mi := &file_gopaxos_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -669,7 +614,7 @@ func (x *P2B) String() string {
 func (*P2B) ProtoMessage() {}
 
 func (x *P2B) ProtoReflect() protoreflect.Message {
-	mi := &file_gopaxos_proto_msgTypes[11]
+	mi := &file_gopaxos_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -682,7 +627,7 @@ func (x *P2B) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use P2B.ProtoReflect.Descriptor instead.
 func (*P2B) Descriptor() ([]byte, []int) {
-	return file_gopaxos_proto_rawDescGZIP(), []int{11}
+	return file_gopaxos_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *P2B) GetAcceptorId() int32 {
@@ -699,61 +644,6 @@ func (x *P2B) GetBallotNumber() int32 {
 	return 0
 }
 
-type P2Bs struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Valid bool   `protobuf:"varint,1,opt,name=valid,proto3" json:"valid,omitempty"`
-	P2Bs  []*P2B `protobuf:"bytes,2,rep,name=p2bs,proto3" json:"p2bs,omitempty"`
-}
-
-func (x *P2Bs) Reset() {
-	*x = P2Bs{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_gopaxos_proto_msgTypes[12]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *P2Bs) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*P2Bs) ProtoMessage() {}
-
-func (x *P2Bs) ProtoReflect() protoreflect.Message {
-	mi := &file_gopaxos_proto_msgTypes[12]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use P2Bs.ProtoReflect.Descriptor instead.
-func (*P2Bs) Descriptor() ([]byte, []int) {
-	return file_gopaxos_proto_rawDescGZIP(), []int{12}
-}
-
-func (x *P2Bs) GetValid() bool {
-	if x != nil {
-		return x.Valid
-	}
-	return false
-}
-
-func (x *P2Bs) GetP2Bs() []*P2B {
-	if x != nil {
-		return x.P2Bs
-	}
-	return nil
-}
-
 type Empty struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -765,7 +655,7 @@ type Empty struct {
 func (x *Empty) Reset() {
 	*x = Empty{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_gopaxos_proto_msgTypes[13]
+		mi := &file_gopaxos_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -778,7 +668,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_gopaxos_proto_msgTypes[13]
+	mi := &file_gopaxos_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -791,7 +681,7 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_gopaxos_proto_rawDescGZIP(), []int{13}
+	return file_gopaxos_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Empty) GetContent() string {
@@ -809,7 +699,7 @@ var file_gopaxos_proto_rawDesc = []byte{
 	0x61, 0x6e, 0x64, 0x12, 0x1a, 0x0a, 0x08, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x49, 0x64, 0x18,
 	0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x08, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x49, 0x64, 0x12,
 	0x1c, 0x0a, 0x09, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x49, 0x64, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x05, 0x52, 0x09, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x49, 0x64, 0x12, 0x1c, 0x0a,
+	0x28, 0x09, 0x52, 0x09, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x49, 0x64, 0x12, 0x1c, 0x0a,
 	0x09, 0x6f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09,
 	0x52, 0x09, 0x6f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x28, 0x0a, 0x08, 0x52,
 	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1c, 0x0a, 0x09, 0x63, 0x6f, 0x6d, 0x6d, 0x61,
@@ -855,10 +745,6 @@ var file_gopaxos_proto_rawDesc = []byte{
 	0x4e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x12, 0x28, 0x0a, 0x08, 0x61, 0x63, 0x63, 0x65, 0x70, 0x74,
 	0x65, 0x64, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0c, 0x2e, 0x67, 0x6f, 0x70, 0x61, 0x78,
 	0x6f, 0x73, 0x2e, 0x42, 0x53, 0x43, 0x52, 0x08, 0x61, 0x63, 0x63, 0x65, 0x70, 0x74, 0x65, 0x64,
-	0x22, 0x3e, 0x0a, 0x04, 0x50, 0x31, 0x62, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x69,
-	0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x12, 0x20,
-	0x0a, 0x04, 0x70, 0x31, 0x62, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0c, 0x2e, 0x67,
-	0x6f, 0x70, 0x61, 0x78, 0x6f, 0x73, 0x2e, 0x50, 0x31, 0x62, 0x52, 0x04, 0x70, 0x31, 0x62, 0x73,
 	0x22, 0x41, 0x0a, 0x03, 0x50, 0x32, 0x61, 0x12, 0x1a, 0x0a, 0x08, 0x6c, 0x65, 0x61, 0x64, 0x65,
 	0x72, 0x49, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x08, 0x6c, 0x65, 0x61, 0x64, 0x65,
 	0x72, 0x49, 0x64, 0x12, 0x1e, 0x0a, 0x03, 0x62, 0x73, 0x63, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
@@ -867,11 +753,7 @@ var file_gopaxos_proto_rawDesc = []byte{
 	0x63, 0x65, 0x70, 0x74, 0x6f, 0x72, 0x49, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x0a,
 	0x61, 0x63, 0x63, 0x65, 0x70, 0x74, 0x6f, 0x72, 0x49, 0x64, 0x12, 0x22, 0x0a, 0x0c, 0x62, 0x61,
 	0x6c, 0x6c, 0x6f, 0x74, 0x4e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05,
-	0x52, 0x0c, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x4e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x22, 0x3e,
-	0x0a, 0x04, 0x50, 0x32, 0x62, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x12, 0x20, 0x0a, 0x04,
-	0x70, 0x32, 0x62, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0c, 0x2e, 0x67, 0x6f, 0x70,
-	0x61, 0x78, 0x6f, 0x73, 0x2e, 0x50, 0x32, 0x62, 0x52, 0x04, 0x70, 0x32, 0x62, 0x73, 0x22, 0x21,
+	0x52, 0x0c, 0x62, 0x61, 0x6c, 0x6c, 0x6f, 0x74, 0x4e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x22, 0x21,
 	0x0a, 0x05, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65,
 	0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e,
 	0x74, 0x32, 0x6f, 0x0a, 0x0d, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x70, 0x6c, 0x69,
@@ -917,7 +799,7 @@ func file_gopaxos_proto_rawDescGZIP() []byte {
 	return file_gopaxos_proto_rawDescData
 }
 
-var file_gopaxos_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_gopaxos_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_gopaxos_proto_goTypes = []interface{}{
 	(*Command)(nil),   // 0: gopaxos.Command
 	(*Response)(nil),  // 1: gopaxos.Response
@@ -928,11 +810,9 @@ var file_gopaxos_proto_goTypes = []interface{}{
 	(*BSC)(nil),       // 6: gopaxos.BSC
 	(*P1A)(nil),       // 7: gopaxos.P1a
 	(*P1B)(nil),       // 8: gopaxos.P1b
-	(*P1Bs)(nil),      // 9: gopaxos.P1bs
-	(*P2A)(nil),       // 10: gopaxos.P2a
-	(*P2B)(nil),       // 11: gopaxos.P2b
-	(*P2Bs)(nil),      // 12: gopaxos.P2bs
-	(*Empty)(nil),     // 13: gopaxos.Empty
+	(*P2A)(nil),       // 9: gopaxos.P2a
+	(*P2B)(nil),       // 10: gopaxos.P2b
+	(*Empty)(nil),     // 11: gopaxos.Empty
 }
 var file_gopaxos_proto_depIdxs = []int32{
 	1,  // 0: gopaxos.Responses.responses:type_name -> gopaxos.Response
@@ -941,30 +821,28 @@ var file_gopaxos_proto_depIdxs = []int32{
 	4,  // 3: gopaxos.Decisions.decisions:type_name -> gopaxos.Decision
 	0,  // 4: gopaxos.BSC.command:type_name -> gopaxos.Command
 	6,  // 5: gopaxos.P1b.accepted:type_name -> gopaxos.BSC
-	8,  // 6: gopaxos.P1bs.p1bs:type_name -> gopaxos.P1b
-	6,  // 7: gopaxos.P2a.bsc:type_name -> gopaxos.BSC
-	11, // 8: gopaxos.P2bs.p2bs:type_name -> gopaxos.P2b
-	0,  // 9: gopaxos.ClientReplica.Reqeust:input_type -> gopaxos.Command
-	13, // 10: gopaxos.ClientReplica.Collect:input_type -> gopaxos.Empty
-	3,  // 11: gopaxos.ReplicaLeader.Propose:input_type -> gopaxos.Proposal
-	13, // 12: gopaxos.ReplicaLeader.Collect:input_type -> gopaxos.Empty
-	7,  // 13: gopaxos.ScottAcceptor.Scouting:input_type -> gopaxos.P1a
-	13, // 14: gopaxos.ScottAcceptor.Collect:input_type -> gopaxos.Empty
-	10, // 15: gopaxos.CommanderAcceptor.Commanding:input_type -> gopaxos.P2a
-	13, // 16: gopaxos.CommanderAcceptor.Collect:input_type -> gopaxos.Empty
-	13, // 17: gopaxos.ClientReplica.Reqeust:output_type -> gopaxos.Empty
-	2,  // 18: gopaxos.ClientReplica.Collect:output_type -> gopaxos.Responses
-	13, // 19: gopaxos.ReplicaLeader.Propose:output_type -> gopaxos.Empty
-	5,  // 20: gopaxos.ReplicaLeader.Collect:output_type -> gopaxos.Decisions
-	13, // 21: gopaxos.ScottAcceptor.Scouting:output_type -> gopaxos.Empty
-	8,  // 22: gopaxos.ScottAcceptor.Collect:output_type -> gopaxos.P1b
-	13, // 23: gopaxos.CommanderAcceptor.Commanding:output_type -> gopaxos.Empty
-	11, // 24: gopaxos.CommanderAcceptor.Collect:output_type -> gopaxos.P2b
-	17, // [17:25] is the sub-list for method output_type
-	9,  // [9:17] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	6,  // 6: gopaxos.P2a.bsc:type_name -> gopaxos.BSC
+	0,  // 7: gopaxos.ClientReplica.Reqeust:input_type -> gopaxos.Command
+	11, // 8: gopaxos.ClientReplica.Collect:input_type -> gopaxos.Empty
+	3,  // 9: gopaxos.ReplicaLeader.Propose:input_type -> gopaxos.Proposal
+	11, // 10: gopaxos.ReplicaLeader.Collect:input_type -> gopaxos.Empty
+	7,  // 11: gopaxos.ScottAcceptor.Scouting:input_type -> gopaxos.P1a
+	11, // 12: gopaxos.ScottAcceptor.Collect:input_type -> gopaxos.Empty
+	9,  // 13: gopaxos.CommanderAcceptor.Commanding:input_type -> gopaxos.P2a
+	11, // 14: gopaxos.CommanderAcceptor.Collect:input_type -> gopaxos.Empty
+	11, // 15: gopaxos.ClientReplica.Reqeust:output_type -> gopaxos.Empty
+	2,  // 16: gopaxos.ClientReplica.Collect:output_type -> gopaxos.Responses
+	11, // 17: gopaxos.ReplicaLeader.Propose:output_type -> gopaxos.Empty
+	5,  // 18: gopaxos.ReplicaLeader.Collect:output_type -> gopaxos.Decisions
+	11, // 19: gopaxos.ScottAcceptor.Scouting:output_type -> gopaxos.Empty
+	8,  // 20: gopaxos.ScottAcceptor.Collect:output_type -> gopaxos.P1b
+	11, // 21: gopaxos.CommanderAcceptor.Commanding:output_type -> gopaxos.Empty
+	10, // 22: gopaxos.CommanderAcceptor.Collect:output_type -> gopaxos.P2b
+	15, // [15:23] is the sub-list for method output_type
+	7,  // [7:15] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_gopaxos_proto_init() }
@@ -1082,18 +960,6 @@ func file_gopaxos_proto_init() {
 			}
 		}
 		file_gopaxos_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*P1Bs); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_gopaxos_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*P2A); i {
 			case 0:
 				return &v.state
@@ -1105,7 +971,7 @@ func file_gopaxos_proto_init() {
 				return nil
 			}
 		}
-		file_gopaxos_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+		file_gopaxos_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*P2B); i {
 			case 0:
 				return &v.state
@@ -1117,19 +983,7 @@ func file_gopaxos_proto_init() {
 				return nil
 			}
 		}
-		file_gopaxos_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*P2Bs); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_gopaxos_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
+		file_gopaxos_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Empty); i {
 			case 0:
 				return &v.state
@@ -1148,7 +1002,7 @@ func file_gopaxos_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_gopaxos_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   4,
 		},
