@@ -23,13 +23,16 @@ var (
 	replicaId    int32
 	replicaPorts = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
 
-	state       string
-	slot_in     int32 = 1
-	slot_out    int32 = 1
-	requests    [leaderNum]chan *pb.Command
-	proposals   [leaderNum]chan *pb.Proposal
-	decisions   chan *pb.Decision
-	leaderPorts = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
+	state     string
+	slot_in   int32 = 1
+	slot_out  int32 = 1
+	requests  [leaderNum]chan *pb.Command
+	proposals map[int32]*pb.Proposal
+	decisions map[int32]*pb.Decision
+
+	proposalsUpdateChannel chan *pb.Proposal
+	decisionsUpdateChannel chan *pb.Decision
+	leaderPorts            = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
 
 	responses []*pb.Response
 )
@@ -41,6 +44,9 @@ type replicaServer struct {
 func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	replicaId = int32(temp)
+
+	go proposalsUpdateRoutine()
+	go decisionsUpdateRoutine()
 
 	for i := 0; i < leaderNum; i++ {
 		go MessengerRoutine(i)
@@ -54,7 +60,7 @@ func main() {
 }
 
 func serve(port string) {
-	// listen leader on port
+	// listen client on port
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -80,11 +86,14 @@ func MessengerRoutine(serial int) {
 
 	// reference sudo code propose()
 	for slot_in < slot_out+WINDOW {
-		request := <-requests[serial]
-		proposals[serial] <- &pb.Proposal{SlotNumber: slot_in, Command: request}
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		c.Propose(ctx, &pb.Proposal{SlotNumber: slot_in, Command: request})
+		_, ok := decisions[slot_in]
+		if !ok {
+			request := <-requests[serial]
+			proposalsUpdateChannel <- &pb.Proposal{SlotNumber: slot_in, Command: request}
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			c.Propose(ctx, &pb.Proposal{SlotNumber: slot_in, Command: request})
+		}
 		slot_in++
 	}
 }
@@ -108,13 +117,12 @@ func CollectorRoutine(serial int) {
 		}
 		if r.Valid {
 			for _, decision := range r.Decisions {
-				decisions <- decision
-				// sudo code
+				decisionsUpdateChannel <- decision
 				for _, proposal := range proposals {
 					if decision.SlotNumber == proposal.SlotNumber {
-						proposals.remove(proposal)
+						delete(proposals, proposal.SlotNumber)
 						if decision.Command != proposal.Command {
-							requests[serial] <- proposal
+							requests[serial] <- proposal.Command
 						}
 					}
 				}
@@ -126,6 +134,18 @@ func CollectorRoutine(serial int) {
 		}
 	}
 }
+func proposalsUpdateRoutine() {
+	for {
+		p := <-proposalsUpdateChannel
+		proposals[p.SlotNumber] = p
+	}
+}
+func decisionsUpdateRoutine() {
+	for {
+		d := <-decisionsUpdateChannel
+		decisions[d.SlotNumber] = d
+	}
+}
 
 // handlers
 func (s *replicaServer) Request(ctx context.Context, in *pb.Command) (*pb.Empty, error) {
@@ -134,7 +154,6 @@ func (s *replicaServer) Request(ctx context.Context, in *pb.Command) (*pb.Empty,
 	}
 	return &pb.Empty{Content: "success"}, nil
 }
-
 func (s *replicaServer) Collect(ctx context.Context, in *pb.Empty) (*pb.Responses, error) {
 	return &pb.Responses{Valid: true, Responses: responses}, nil
 }
