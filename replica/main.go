@@ -34,7 +34,8 @@ var (
 	decisionsUpdateChannel chan *pb.Decision
 	leaderPorts            = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
 
-	responses []*pb.Response
+	responses              []*pb.Response
+	responsesUpdateChannel chan *pb.Response
 )
 
 type replicaServer struct {
@@ -47,6 +48,7 @@ func main() {
 
 	go proposalsUpdateRoutine()
 	go decisionsUpdateRoutine()
+	go responsesUpdateRoutine()
 
 	for i := 0; i < leaderNum; i++ {
 		go MessengerRoutine(i)
@@ -126,10 +128,12 @@ func CollectorRoutine(serial int) {
 						}
 					}
 				}
-				// perform(decision) atomically
+				// atomic
 				state = state + decision.Command.Operation
 				slot_out++
 				log.Printf("Operation %s is performed", decision.Command.Operation)
+				// end atomic
+				responsesUpdateChannel <- &pb.Response{CommandId: decision.Command.CommandId}
 			}
 		}
 	}
@@ -144,6 +148,11 @@ func decisionsUpdateRoutine() {
 	for {
 		d := <-decisionsUpdateChannel
 		decisions[d.SlotNumber] = d
+	}
+}
+func responsesUpdateRoutine() {
+	for {
+		responses = append(responses, <-responsesUpdateChannel)
 	}
 }
 
