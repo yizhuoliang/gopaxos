@@ -56,9 +56,6 @@ func main() {
 	}
 
 	serve(replicaPorts[replicaId])
-
-	preventExit := make(chan int32, 1)
-	<-preventExit
 }
 
 func serve(port string) {
@@ -165,5 +162,11 @@ func (s *replicaServer) Request(ctx context.Context, in *pb.Command) (*pb.Empty,
 }
 
 func (s *replicaServer) Collect(ctx context.Context, in *pb.Empty) (*pb.Responses, error) {
-	return &pb.Responses{Valid: true, Responses: responses}, nil
+	if len(responses) == 0 {
+		return &pb.Responses{Valid: false, Responses: nil}, nil
+	} else {
+		r := responses
+		responses = responses[:0]
+		return &pb.Responses{Valid: true, Responses: r}, nil
+	}
 }
