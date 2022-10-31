@@ -101,8 +101,7 @@ func ScoutRoutine() {
 }
 
 func CommanderRoutine(bsc *pb.BSC) {
-	var commanderCollectChannel chan *pb.P2B
-	commanderCollectChannel = make(chan *pb.P2B)
+	commanderCollectChannel := make(chan *pb.P2B)
 	// send messages
 	for i := 0; i < acceptorNum; i++ {
 		go CommanderMessenger(i, bsc, commanderCollectChannel)
@@ -111,7 +110,14 @@ func CommanderRoutine(bsc *pb.BSC) {
 	// collect messages
 	replyCount := 0
 	for {
-
+		r := <-commanderCollectChannel
+		if r.BallotNumber == bsc.BallotNumber {
+			// waitfor:=waitfor-{α};
+			replyCount++
+			if replyCount > acceptorNum/2 {
+				decisions = append(decisions, &pb.Decision{SlotNumber: bsc.SlotNumber, Command: bsc.Command})
+			}
+		}
 	}
 }
 
@@ -129,6 +135,10 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 	defer cancel()
 
 	p2b, err := c.Commanding(ctx, &pb.P2A{LeaderId: leaderId, Bsc: bsc})
+	if err != nil {
+		commanderCollectChannel <- &pb.P2B{AcceptorId: -1, BallotNumber: -1}
+		return
+	}
 	commanderCollectChannel <- p2b
 }
 
