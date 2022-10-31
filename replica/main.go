@@ -55,7 +55,7 @@ func main() {
 		go CollectorRoutine(i)
 	}
 
-	go serve(replicaPorts[replicaId])
+	serve(replicaPorts[replicaId])
 
 	preventExit := make(chan int32, 1)
 	<-preventExit
