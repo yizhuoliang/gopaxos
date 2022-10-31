@@ -7,8 +7,14 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+)
+
+const (
+	acceptorNum = 3
 )
 
 var (
@@ -95,7 +101,35 @@ func ScoutRoutine() {
 }
 
 func CommanderRoutine(bsc *pb.BSC) {
+	var commanderCollectChannel chan *pb.P2B
+	commanderCollectChannel = make(chan *pb.P2B)
+	// send messages
+	for i := 0; i < acceptorNum; i++ {
+		go CommanderMessenger(i, bsc, commanderCollectChannel)
+	}
 
+	// collect messages
+	replyCount := 0
+	for {
+
+	}
+}
+
+func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*pb.P2B)) {
+	conn, err := grpc.Dial(acceptorPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("failed to connect: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	c := pb.NewLeaderAcceptorClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	p2b, err := c.Commanding(ctx, &pb.P2A{LeaderId: leaderId, Bsc: bsc})
+	commanderCollectChannel <- p2b
 }
 
 // gRPC HANDLERS
