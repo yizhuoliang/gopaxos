@@ -15,14 +15,11 @@ service ReplicaLeader {
     rpc Collect (Empty) returns (Decisions) {}
 }
 
-service ScottAcceptor {
+service LeaderAcceptor {
     rpc Scouting (P1a) returns (Empty) {}
-    rpc Collect (Empty) returns (P1b) {}
-}
-
-service CommanderAcceptor {
+    rpc CollectP1 (Empty) returns (P1b) {}
     rpc Commanding (P2a) returns (Empty) {}
-    rpc Collect (Empty) returns (P2b) {}
+    rpc CollectP2 (Empty) returns (P2b) {}
 }
 
 message Command {
