@@ -16,10 +16,8 @@ service ReplicaLeader {
 }
 
 service LeaderAcceptor {
-    rpc Scouting (P1a) returns (Empty) {}
-    rpc CollectP1 (Empty) returns (P1b) {}
-    rpc Commanding (P2a) returns (Empty) {}
-    rpc CollectP2 (Empty) returns (P2b) {}
+    rpc Scouting (P1a) returns (P1b) {}
+    rpc Commanding (P2a) returns (P2b) {}
 }
 
 message Command {

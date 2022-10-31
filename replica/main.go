@@ -163,6 +163,7 @@ func (s *replicaServer) Request(ctx context.Context, in *pb.Command) (*pb.Empty,
 	}
 	return &pb.Empty{Content: "success"}, nil
 }
+
 func (s *replicaServer) Collect(ctx context.Context, in *pb.Empty) (*pb.Responses, error) {
 	return &pb.Responses{Valid: true, Responses: responses}, nil
 }

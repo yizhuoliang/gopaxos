@@ -266,10 +266,8 @@ var ReplicaLeader_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LeaderAcceptorClient interface {
-	Scouting(ctx context.Context, in *P1A, opts ...grpc.CallOption) (*Empty, error)
-	CollectP1(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*P1B, error)
-	Commanding(ctx context.Context, in *P2A, opts ...grpc.CallOption) (*Empty, error)
-	CollectP2(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*P2B, error)
+	Scouting(ctx context.Context, in *P1A, opts ...grpc.CallOption) (*P1B, error)
+	Commanding(ctx context.Context, in *P2A, opts ...grpc.CallOption) (*P2B, error)
 }
 
 type leaderAcceptorClient struct {
@@ -280,8 +278,8 @@ func NewLeaderAcceptorClient(cc grpc.ClientConnInterface) LeaderAcceptorClient {
 	return &leaderAcceptorClient{cc}
 }
 
-func (c *leaderAcceptorClient) Scouting(ctx context.Context, in *P1A, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
+func (c *leaderAcceptorClient) Scouting(ctx context.Context, in *P1A, opts ...grpc.CallOption) (*P1B, error) {
+	out := new(P1B)
 	err := c.cc.Invoke(ctx, "/gopaxos.LeaderAcceptor/Scouting", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -289,27 +287,9 @@ func (c *leaderAcceptorClient) Scouting(ctx context.Context, in *P1A, opts ...gr
 	return out, nil
 }
 
-func (c *leaderAcceptorClient) CollectP1(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*P1B, error) {
-	out := new(P1B)
-	err := c.cc.Invoke(ctx, "/gopaxos.LeaderAcceptor/CollectP1", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *leaderAcceptorClient) Commanding(ctx context.Context, in *P2A, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, "/gopaxos.LeaderAcceptor/Commanding", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *leaderAcceptorClient) CollectP2(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*P2B, error) {
+func (c *leaderAcceptorClient) Commanding(ctx context.Context, in *P2A, opts ...grpc.CallOption) (*P2B, error) {
 	out := new(P2B)
-	err := c.cc.Invoke(ctx, "/gopaxos.LeaderAcceptor/CollectP2", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/gopaxos.LeaderAcceptor/Commanding", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -320,10 +300,8 @@ func (c *leaderAcceptorClient) CollectP2(ctx context.Context, in *Empty, opts ..
 // All implementations must embed UnimplementedLeaderAcceptorServer
 // for forward compatibility
 type LeaderAcceptorServer interface {
-	Scouting(context.Context, *P1A) (*Empty, error)
-	CollectP1(context.Context, *Empty) (*P1B, error)
-	Commanding(context.Context, *P2A) (*Empty, error)
-	CollectP2(context.Context, *Empty) (*P2B, error)
+	Scouting(context.Context, *P1A) (*P1B, error)
+	Commanding(context.Context, *P2A) (*P2B, error)
 	mustEmbedUnimplementedLeaderAcceptorServer()
 }
 
@@ -331,17 +309,11 @@ type LeaderAcceptorServer interface {
 type UnimplementedLeaderAcceptorServer struct {
 }
 
-func (UnimplementedLeaderAcceptorServer) Scouting(context.Context, *P1A) (*Empty, error) {
+func (UnimplementedLeaderAcceptorServer) Scouting(context.Context, *P1A) (*P1B, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Scouting not implemented")
 }
-func (UnimplementedLeaderAcceptorServer) CollectP1(context.Context, *Empty) (*P1B, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CollectP1 not implemented")
-}
-func (UnimplementedLeaderAcceptorServer) Commanding(context.Context, *P2A) (*Empty, error) {
+func (UnimplementedLeaderAcceptorServer) Commanding(context.Context, *P2A) (*P2B, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Commanding not implemented")
-}
-func (UnimplementedLeaderAcceptorServer) CollectP2(context.Context, *Empty) (*P2B, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CollectP2 not implemented")
 }
 func (UnimplementedLeaderAcceptorServer) mustEmbedUnimplementedLeaderAcceptorServer() {}
 
@@ -374,24 +346,6 @@ func _LeaderAcceptor_Scouting_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LeaderAcceptor_CollectP1_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(LeaderAcceptorServer).CollectP1(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gopaxos.LeaderAcceptor/CollectP1",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LeaderAcceptorServer).CollectP1(ctx, req.(*Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _LeaderAcceptor_Commanding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(P2A)
 	if err := dec(in); err != nil {
@@ -410,24 +364,6 @@ func _LeaderAcceptor_Commanding_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LeaderAcceptor_CollectP2_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(LeaderAcceptorServer).CollectP2(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gopaxos.LeaderAcceptor/CollectP2",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LeaderAcceptorServer).CollectP2(ctx, req.(*Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // LeaderAcceptor_ServiceDesc is the grpc.ServiceDesc for LeaderAcceptor service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -440,16 +376,8 @@ var LeaderAcceptor_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LeaderAcceptor_Scouting_Handler,
 		},
 		{
-			MethodName: "CollectP1",
-			Handler:    _LeaderAcceptor_CollectP1_Handler,
-		},
-		{
 			MethodName: "Commanding",
 			Handler:    _LeaderAcceptor_Commanding_Handler,
-		},
-		{
-			MethodName: "CollectP2",
-			Handler:    _LeaderAcceptor_CollectP2_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
