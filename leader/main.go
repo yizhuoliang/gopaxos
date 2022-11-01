@@ -41,6 +41,14 @@ type leaderServer struct {
 	pb.UnimplementedReplicaLeaderServer
 }
 
+// REQUEST TYPES:
+// 1 - new proposal, asked by handlers
+// 2 - new
+type proposalsUpdateRequest struct {
+	requestType int
+	newProposal *pb.Proposal
+}
+
 func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	leaderId = int32(temp)
@@ -97,7 +105,37 @@ func proposalsUpdateRoutine() {
 
 // SUB-ROUTINES
 func ScoutRoutine() {
+	scoutCollectChannel := make(chan *pb.P1B)
+	// send messages
+	for i := 0; i < acceptorNum; i++ {
+		go ScoutMessenger(i, scoutCollectChannel)
+	}
 
+	// collect messages
+	for {
+
+	}
+}
+
+func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B) {
+	conn, err := grpc.Dial(acceptorPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("failed to connect: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	c := pb.NewLeaderAcceptorClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	p1b, err := c.Scouting(ctx, &pb.P1A{LeaderId: leaderId, BallotNumber: ballotNumber})
+	if err != nil {
+		scoutCollectChannel <- &pb.P1B{AcceptorId: -1, BallotNumber: -1, Accepted: nil}
+		return
+	}
+	scoutCollectChannel <- p1b
 }
 
 func CommanderRoutine(bsc *pb.BSC) {
@@ -117,6 +155,8 @@ func CommanderRoutine(bsc *pb.BSC) {
 			if replyCount > acceptorNum/2 {
 				decisions = append(decisions, &pb.Decision{SlotNumber: bsc.SlotNumber, Command: bsc.Command})
 			}
+		} else if r.BallotNumber > 0 && r.AcceptorId > 0 {
+			// PREEMPTION
 		}
 	}
 }
