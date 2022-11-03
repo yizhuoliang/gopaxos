@@ -29,8 +29,7 @@ var (
 	active       bool = false
 	proposals    map[int32]*pb.Proposal
 
-	ballotNumberUpdateChannel chan int32
-	proposalsUpdateChannel    chan *proposalsUpdateRequest
+	leaderStateUpdateChannel chan *leaderStateUpdateRequest
 
 	decisions []*pb.Decision
 )
@@ -43,7 +42,7 @@ type leaderServer struct {
 // 1 - new proposal, asked by handlers
 // 2 - adoption
 // 3 - preemption
-type proposalsUpdateRequest struct {
+type leaderStateUpdateRequest struct {
 	updateType             int
 	newProposal            *pb.Proposal
 	pvalues                []*pb.BSC
@@ -55,8 +54,7 @@ func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	leaderId = int32(temp)
 
-	ballotNumberUpdateChannel = make(chan int32)
-	go ballotNumberUpdateRoutine()
+	go leaderStateUpdateRoutine()
 
 	// spawn the initial Scout
 	go ScoutRoutine(ballotNumber)
@@ -78,22 +76,10 @@ func serve(port string) {
 	}
 }
 
-// UPDATER ROUTINES
-func ballotNumberUpdateRoutine() {
-	for {
-		newNum := <-ballotNumberUpdateChannel
-
-		// CONCERN: need more consideration on the concurrency of ballotNumber
-		if newNum > ballotNumber {
-			ballotNumber = newNum
-		}
-	}
-}
-
 // TODO: expand this
-func proposalsUpdateRoutine() {
+func leaderStateUpdateRoutine() {
 	for {
-		update := <-proposalsUpdateChannel
+		update := <-leaderStateUpdateChannel
 		if update.updateType == 1 {
 			// gRPC handler add new proposals
 			newProposal := update.newProposal
@@ -124,6 +110,13 @@ func proposalsUpdateRoutine() {
 				go CommanderRoutine(&pb.BSC{BallotNumber: ballotNumber, SlotNumber: proposal.SlotNumber, Command: proposal.Command})
 			}
 			active = true
+		} else if update.updateType == 3 {
+			// PREEMPTION
+			if update.preemptionBallotNumber > ballotNumber {
+				active = false
+				ballotNumber = update.preemptionBallotNumber + 1
+				go ScoutRoutine(ballotNumber)
+			}
 		}
 	}
 }
@@ -144,12 +137,13 @@ func ScoutRoutine(scoutBallotNumber int32) {
 		if p1b.AcceptorId >= 0 && p1b.BallotNumber >= 0 {
 			if p1b.BallotNumber != scoutBallotNumber {
 				// do preemption
-
+				leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 3, preemptionBallotNumber: p1b.BallotNumber}
+				return
 			}
 			acceptCount++
 			pvalues = append(pvalues, p1b.Accepted...)
 			if acceptCount > acceptorNum/2 {
-				proposalsUpdateChannel <- &proposalsUpdateRequest{updateType: 2, pvalues: pvalues, adoptionBallowNumber: scoutBallotNumber}
+				leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 2, pvalues: pvalues, adoptionBallowNumber: scoutBallotNumber}
 				return
 			}
 		}
@@ -197,7 +191,8 @@ func CommanderRoutine(bsc *pb.BSC) {
 			}
 		} else if r.BallotNumber > 0 && r.AcceptorId > 0 {
 			// PREEMPTION
-
+			leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 3, preemptionBallotNumber: r.BallotNumber}
+			return
 		}
 	}
 }
@@ -225,7 +220,7 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 
 // gRPC HANDLERS
 func (s *leaderServer) Propose(ctx context.Context, in *pb.Proposal) (*pb.Empty, error) {
-	proposalsUpdateChannel <- &proposalsUpdateRequest{updateType: 1, newProposal: in} // Weird? Yes! Things can only be down after chekcing proposals
+	leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 1, newProposal: in} // Weird? Yes! Things can only be down after chekcing proposals
 	return &pb.Empty{Content: "success"}, nil
 }
 
