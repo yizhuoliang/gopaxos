@@ -30,7 +30,7 @@ var (
 	proposals    map[int32]*pb.Proposal
 
 	ballotNumberUpdateChannel chan int32
-	proposalsUpdateChannel    chan *pb.Proposal
+	proposalsUpdateChannel    chan *proposalsUpdateRequest
 
 	decisions []*pb.Decision
 
@@ -45,8 +45,9 @@ type leaderServer struct {
 // 1 - new proposal, asked by handlers
 // 2 - new
 type proposalsUpdateRequest struct {
-	requestType int
+	updateType  int
 	newProposal *pb.Proposal
+	pvalues     []*pb.BSC
 }
 
 func main() {
@@ -94,11 +95,32 @@ func ballotNumberUpdateRoutine() {
 // TODO: expand this
 func proposalsUpdateRoutine() {
 	for {
-		newProposal := <-proposalsUpdateChannel
-		if _, ok := proposals[newProposal.SlotNumber]; !ok {
-			proposals[newProposal.SlotNumber] = newProposal
-			go CommanderRoutine(&pb.BSC{
-				BallotNumber: ballotNumber, SlotNumber: newProposal.SlotNumber, Command: newProposal.Command})
+		update := <-proposalsUpdateChannel
+		if update.updateType == 1 {
+			// gRPC handler add new proposals
+			newProposal := update.newProposal
+			if _, ok := proposals[newProposal.SlotNumber]; !ok {
+				proposals[newProposal.SlotNumber] = newProposal
+				go CommanderRoutine(&pb.BSC{
+					BallotNumber: ballotNumber, SlotNumber: newProposal.SlotNumber, Command: newProposal.Command})
+			}
+		} else if update.updateType == 2 {
+			// ADOPTION
+			pvalues := update.pvalues
+			var slotToBallot map[int32]int32 // map from slot number to ballot number to satisfy pmax
+			for _, bsc := range pvalues {
+				proposal, okProp := proposals[bsc.BallotNumber]
+				if okProp {
+					originalBallot, okBall := slotToBallot[proposal.SlotNumber]
+					if (okBall && originalBallot < bsc.BallotNumber) || !okBall {
+						proposals[bsc.SlotNumber] = &pb.Proposal{SlotNumber: bsc.SlotNumber, Command: bsc.Command}
+						slotToBallot[proposal.SlotNumber] = bsc.BallotNumber
+					}
+				} else {
+					proposals[bsc.SlotNumber] = &pb.Proposal{SlotNumber: bsc.SlotNumber, Command: bsc.Command}
+					slotToBallot[proposal.SlotNumber] = bsc.BallotNumber
+				}
+			}
 		}
 	}
 }
@@ -112,8 +134,21 @@ func ScoutRoutine() {
 	}
 
 	// collect messages
-	for {
-
+	acceptCount := 0
+	var pvalues []*pb.BSC
+	for i := 0; i < acceptorNum; i++ {
+		p1b := <-scoutCollectChannel
+		if p1b.AcceptorId >= 0 && p1b.BallotNumber >= 0 {
+			if p1b.BallotNumber != ballotNumber {
+				// do preemption
+			}
+			acceptCount++
+			pvalues = append(pvalues, p1b.Accepted...)
+			if acceptCount > acceptorNum/2 {
+				proposalsUpdateChannel <- &proposalsUpdateRequest{updateType: 2, pvalues: pvalues}
+				return
+			}
+		}
 	}
 }
 
@@ -147,7 +182,7 @@ func CommanderRoutine(bsc *pb.BSC) {
 
 	// collect messages
 	replyCount := 0
-	for {
+	for i := 0; i < acceptorNum; i++ {
 		r := <-commanderCollectChannel
 		if r.BallotNumber == bsc.BallotNumber {
 			// waitfor:=waitfor-{α};
@@ -184,7 +219,7 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 
 // gRPC HANDLERS
 func (s *leaderServer) Propose(ctx context.Context, in *pb.Proposal) (*pb.Empty, error) {
-	proposalsUpdateChannel <- in // Weird? Yes! Things can only be down after chekcing proposals
+	proposalsUpdateChannel <- &proposalsUpdateRequest{updateType: 1, newProposal: in} // Weird? Yes! Things can only be down after chekcing proposals
 	return &pb.Empty{Content: "success"}, nil
 }
 
