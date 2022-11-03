@@ -33,8 +33,6 @@ var (
 	proposalsUpdateChannel    chan *proposalsUpdateRequest
 
 	decisions []*pb.Decision
-
-	feedbackChannel chan int32
 )
 
 type leaderServer struct {
@@ -43,11 +41,14 @@ type leaderServer struct {
 
 // REQUEST TYPES:
 // 1 - new proposal, asked by handlers
-// 2 - new
+// 2 - adoption
+// 3 - preemption
 type proposalsUpdateRequest struct {
-	updateType  int
-	newProposal *pb.Proposal
-	pvalues     []*pb.BSC
+	updateType             int
+	newProposal            *pb.Proposal
+	pvalues                []*pb.BSC
+	adoptionBallowNumber   int32
+	preemptionBallotNumber int32
 }
 
 func main() {
@@ -57,13 +58,10 @@ func main() {
 	ballotNumberUpdateChannel = make(chan int32)
 	go ballotNumberUpdateRoutine()
 
-	feedbackChannel = make(chan int32)
-	// TODO: implement feedback, need a struct for Preemption and adoption
-	// TODO: update decisions[] during adoption for sending feedback to replicas
+	// spawn the initial Scout
+	go ScoutRoutine(ballotNumber)
 
 	serve(leaderPorts[leaderId])
-
-	// TODO: more leader routine
 }
 
 func serve(port string) {
@@ -121,16 +119,21 @@ func proposalsUpdateRoutine() {
 					slotToBallot[proposal.SlotNumber] = bsc.BallotNumber
 				}
 			}
+			// send proposals
+			for _, proposal := range proposals {
+				go CommanderRoutine(&pb.BSC{BallotNumber: ballotNumber, SlotNumber: proposal.SlotNumber, Command: proposal.Command})
+			}
+			active = true
 		}
 	}
 }
 
 // SUB-ROUTINES
-func ScoutRoutine() {
+func ScoutRoutine(scoutBallotNumber int32) {
 	scoutCollectChannel := make(chan *pb.P1B)
 	// send messages
 	for i := 0; i < acceptorNum; i++ {
-		go ScoutMessenger(i, scoutCollectChannel)
+		go ScoutMessenger(i, scoutCollectChannel, scoutBallotNumber)
 	}
 
 	// collect messages
@@ -139,20 +142,21 @@ func ScoutRoutine() {
 	for i := 0; i < acceptorNum; i++ {
 		p1b := <-scoutCollectChannel
 		if p1b.AcceptorId >= 0 && p1b.BallotNumber >= 0 {
-			if p1b.BallotNumber != ballotNumber {
+			if p1b.BallotNumber != scoutBallotNumber {
 				// do preemption
+
 			}
 			acceptCount++
 			pvalues = append(pvalues, p1b.Accepted...)
 			if acceptCount > acceptorNum/2 {
-				proposalsUpdateChannel <- &proposalsUpdateRequest{updateType: 2, pvalues: pvalues}
+				proposalsUpdateChannel <- &proposalsUpdateRequest{updateType: 2, pvalues: pvalues, adoptionBallowNumber: scoutBallotNumber}
 				return
 			}
 		}
 	}
 }
 
-func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B) {
+func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNumber int32) {
 	conn, err := grpc.Dial(acceptorPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("failed to connect: %v", err)
@@ -165,7 +169,7 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	p1b, err := c.Scouting(ctx, &pb.P1A{LeaderId: leaderId, BallotNumber: ballotNumber})
+	p1b, err := c.Scouting(ctx, &pb.P1A{LeaderId: leaderId, BallotNumber: scoutBallotNumber})
 	if err != nil {
 		scoutCollectChannel <- &pb.P1B{AcceptorId: -1, BallotNumber: -1, Accepted: nil}
 		return
@@ -189,9 +193,11 @@ func CommanderRoutine(bsc *pb.BSC) {
 			replyCount++
 			if replyCount > acceptorNum/2 {
 				decisions = append(decisions, &pb.Decision{SlotNumber: bsc.SlotNumber, Command: bsc.Command})
+				return
 			}
 		} else if r.BallotNumber > 0 && r.AcceptorId > 0 {
 			// PREEMPTION
+
 		}
 	}
 }
