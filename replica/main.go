@@ -30,29 +30,29 @@ var (
 	proposals map[int32]*pb.Proposal
 	decisions map[int32]*pb.Decision
 
-	proposalsUpdateChannel chan *pb.Proposal
-	decisionsUpdateChannel chan *pb.Decision
-	leaderPorts            = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
+	leaderPorts = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
 
-	responses              []*pb.Response
-	responsesUpdateChannel chan *pb.Response
+	responses []*pb.Response
+
+	replicaStateUpdateChannel chan *replicaStateUpdateRequest
 )
 
 type replicaServer struct {
 	pb.UnimplementedClientReplicaServer
 }
 
+type replicaStateUpdateRequest struct {
+	updateType   int
+	newDecisions []*pb.Decision
+	serial       int
+	c            pb.ReplicaLeaderClient
+}
+
 func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	replicaId = int32(temp)
 
-	proposalsUpdateChannel = make(chan *pb.Proposal, 1)
-	decisionsUpdateChannel = make(chan *pb.Decision, 1)
-	responsesUpdateChannel = make(chan *pb.Response, 1)
-
-	go proposalsUpdateRoutine()
-	go decisionsUpdateRoutine()
-	go responsesUpdateRoutine()
+	replicaStateUpdateChannel = make(chan *replicaStateUpdateRequest)
 
 	for i := 0; i < leaderNum; i++ {
 		go MessengerRoutine(i)
@@ -77,6 +77,47 @@ func serve(port string) {
 }
 
 // routines
+func ReplicaStateUpdateRoutine() {
+	for {
+		update := <-replicaStateUpdateChannel
+		if update.updateType == 1 {
+			for _, decision := range update.newDecisions {
+				decisions[decision.SlotNumber] = decision
+				for _, proposal := range proposals {
+					if decision.SlotNumber == proposal.SlotNumber {
+						delete(proposals, proposal.SlotNumber)
+						if decision.Command != proposal.Command {
+							requests[update.serial] <- proposal.Command
+						}
+					}
+				}
+				// atomic
+				state = state + decision.Command.Operation
+				slot_out++
+				// end atomic
+				log.Printf("Operation %s is performed", decision.Command.Operation)
+				responses = append(responses, &pb.Response{CommandId: decision.Command.CommandId})
+			}
+		} else if update.updateType == 2 {
+			// reference sudo code propose()
+			for slot_in < slot_out+WINDOW {
+				_, ok := decisions[slot_in]
+				if !ok {
+					request := <-requests[update.serial]
+					proposals[slot_in] = &pb.Proposal{SlotNumber: slot_in, Command: request}
+					ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+					_, err := update.c.Propose(ctx, &pb.Proposal{SlotNumber: slot_in, Command: request})
+					if err != nil {
+						log.Printf("failed to propose: %v", err)
+						cancel()
+					}
+				}
+				slot_in++
+			}
+		}
+	}
+}
+
 func MessengerRoutine(serial int) {
 	conn, err := grpc.Dial(leaderPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -86,20 +127,11 @@ func MessengerRoutine(serial int) {
 	defer conn.Close()
 
 	c := pb.NewReplicaLeaderClient(conn)
-
-	// reference sudo code propose()
-	for slot_in < slot_out+WINDOW {
-		_, ok := decisions[slot_in]
-		if !ok {
-			request := <-requests[serial]
-			proposalsUpdateChannel <- &pb.Proposal{SlotNumber: slot_in, Command: request}
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
-			c.Propose(ctx, &pb.Proposal{SlotNumber: slot_in, Command: request})
-		}
-		slot_in++
+	for {
+		replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil, serial: serial, c: c}
 	}
 }
+
 func CollectorRoutine(serial int) {
 	conn, err := grpc.Dial(leaderPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -119,41 +151,8 @@ func CollectorRoutine(serial int) {
 			cancel()
 		}
 		if r.Valid {
-			for _, decision := range r.Decisions {
-				decisionsUpdateChannel <- decision
-				for _, proposal := range proposals { // concurrent access to proposals
-					if decision.SlotNumber == proposal.SlotNumber {
-						delete(proposals, proposal.SlotNumber) // concurrent modification to proposals
-						if decision.Command != proposal.Command {
-							requests[serial] <- proposal.Command
-						}
-					}
-				}
-				// atomic
-				state = state + decision.Command.Operation
-				slot_out++
-				log.Printf("Operation %s is performed", decision.Command.Operation)
-				// end atomic
-				responsesUpdateChannel <- &pb.Response{CommandId: decision.Command.CommandId}
-			}
+			replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 1, newDecisions: r.Decisions, serial: serial}
 		}
-	}
-}
-func proposalsUpdateRoutine() {
-	for {
-		p := <-proposalsUpdateChannel
-		proposals[p.SlotNumber] = p
-	}
-}
-func decisionsUpdateRoutine() {
-	for {
-		d := <-decisionsUpdateChannel
-		decisions[d.SlotNumber] = d
-	}
-}
-func responsesUpdateRoutine() {
-	for {
-		responses = append(responses, <-responsesUpdateChannel)
 	}
 }
 
@@ -166,9 +165,5 @@ func (s *replicaServer) Request(ctx context.Context, in *pb.Command) (*pb.Empty,
 }
 
 func (s *replicaServer) Collect(ctx context.Context, in *pb.Empty) (*pb.Responses, error) {
-	if len(responses) == 0 {
-		return &pb.Responses{Valid: false, Responses: nil}, nil
-	} else {
-		return &pb.Responses{Valid: true, Responses: responses}, nil
-	}
+	return &pb.Responses{Valid: true, Responses: responses}, nil
 }
