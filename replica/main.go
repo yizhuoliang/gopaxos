@@ -81,6 +81,7 @@ func ReplicaStateUpdateRoutine() {
 	for {
 		update := <-replicaStateUpdateChannel
 		if update.updateType == 1 {
+			// reference sudo code perform()
 			for _, decision := range update.newDecisions {
 				decisions[decision.SlotNumber] = decision
 				for _, proposal := range proposals {
@@ -142,7 +143,6 @@ func CollectorRoutine(serial int) {
 
 	c := pb.NewReplicaLeaderClient(conn)
 
-	// reference sudo code perform()
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		r, err := c.Collect(ctx, &pb.Empty{Content: "checking responses"})
