@@ -67,8 +67,10 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.P1A) (*pb.P1B, err
 			acceptedList = append(acceptedList, bscs...)
 		}
 	}
+	currentBallotNumber := ballotNumber
+	currentBallotLeader := ballotLeader
 	mutexChannel <- 1
-	return &pb.P1B{AcceptorId: acceptorId, BallotNumber: ballotNumber, Accepted: acceptedList}, nil
+	return &pb.P1B{AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: acceptedList}, nil
 }
 
 func (s *acceptorServer) Commanding(ctx context.Context, in *pb.P2A) (*pb.P2B, error) {
