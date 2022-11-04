@@ -14,9 +14,9 @@ import (
 var (
 	server        *grpc.Server
 	acceptorId    int32 // also considered as the serial of this acceptor
-	acceptorPorts = []string{"127.0.0.1:50057", "127.0.0.1:50058", "127.0.0.1:50059"}
+	acceptorPorts       = []string{"127.0.0.1:50057", "127.0.0.1:50058", "127.0.0.1:50059"}
 
-	ballotNumber int32
+	ballotNumber int32 = -1
 	accepted     map[int32][]*pb.BSC
 
 	ballotNumberUpdateChannel chan int32
@@ -30,7 +30,7 @@ func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	acceptorId = int32(temp)
 
-	ballotNumberUpdateChannel = make(chan int32)
+	ballotNumberUpdateChannel = make(chan int32, 1)
 	go ballotNumberUpdateRoutine()
 
 	serve(acceptorPorts[acceptorId])
@@ -67,9 +67,7 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.P1A) (*pb.P1B, err
 	var acceptedList []*pb.BSC
 	for i := 1; i < int(ballotNumber); i++ {
 		if bscs, ok := accepted[int32(i)]; ok {
-			for _, bsc := range bscs {
-				acceptedList = append(acceptedList, bsc)
-			}
+			acceptedList = append(acceptedList, bscs...)
 		}
 	}
 	return &pb.P1B{AcceptorId: acceptorId, BallotNumber: ballotNumber, Accepted: acceptedList}, nil

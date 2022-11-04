@@ -25,8 +25,8 @@ var (
 	acceptorPorts = []string{"127.0.0.1:50057", "127.0.0.1:50058", "127.0.0.1:50059"}
 
 	// leader states
-	ballotNumber int32
-	active       bool = false
+	ballotNumber int32 = 0
+	active       bool  = false
 	proposals    map[int32]*pb.Proposal
 
 	leaderStateUpdateChannel chan *leaderStateUpdateRequest
@@ -53,6 +53,8 @@ type leaderStateUpdateRequest struct {
 func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	leaderId = int32(temp)
+
+	leaderStateUpdateChannel = make(chan *leaderStateUpdateRequest, 1)
 
 	go leaderStateUpdateRoutine()
 
@@ -85,13 +87,15 @@ func leaderStateUpdateRoutine() {
 			newProposal := update.newProposal
 			if _, ok := proposals[newProposal.SlotNumber]; !ok {
 				proposals[newProposal.SlotNumber] = newProposal
-				go CommanderRoutine(&pb.BSC{
-					BallotNumber: ballotNumber, SlotNumber: newProposal.SlotNumber, Command: newProposal.Command})
+				if active {
+					go CommanderRoutine(&pb.BSC{
+						BallotNumber: ballotNumber, SlotNumber: newProposal.SlotNumber, Command: newProposal.Command})
+				}
 			}
 		} else if update.updateType == 2 {
 			// ADOPTION
 			pvalues := update.pvalues
-			var slotToBallot map[int32]int32 // map from slot number to ballot number to satisfy pmax
+			slotToBallot := make(map[int32]int32) // map from slot number to ballot number to satisfy pmax
 			for _, bsc := range pvalues {
 				proposal, okProp := proposals[bsc.BallotNumber]
 				if okProp {
@@ -228,8 +232,6 @@ func (s *leaderServer) Collect(ctx context.Context, in *pb.Empty) (*pb.Decisions
 	if len(decisions) == 0 {
 		return &pb.Decisions{Valid: false, Decisions: nil}, nil
 	} else {
-		r := decisions
-		decisions = decisions[:0]
-		return &pb.Decisions{Valid: true, Decisions: r}, nil
+		return &pb.Decisions{Valid: true, Decisions: decisions}, nil
 	}
 }

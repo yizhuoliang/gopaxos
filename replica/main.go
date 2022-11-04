@@ -23,9 +23,9 @@ var (
 	replicaId    int32
 	replicaPorts = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
 
-	state     string
-	slot_in   int32 = 1
-	slot_out  int32 = 1
+	state     string = ""
+	slot_in   int32  = 1
+	slot_out  int32  = 1
 	requests  [leaderNum]chan *pb.Command
 	proposals map[int32]*pb.Proposal
 	decisions map[int32]*pb.Decision
@@ -45,6 +45,10 @@ type replicaServer struct {
 func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	replicaId = int32(temp)
+
+	proposalsUpdateChannel = make(chan *pb.Proposal, 1)
+	decisionsUpdateChannel = make(chan *pb.Decision, 1)
+	responsesUpdateChannel = make(chan *pb.Response, 1)
 
 	go proposalsUpdateRoutine()
 	go decisionsUpdateRoutine()
@@ -109,17 +113,17 @@ func CollectorRoutine(serial int) {
 	// reference sudo code perform()
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
 		r, err := c.Collect(ctx, &pb.Empty{Content: "checking responses"})
 		if err != nil {
 			log.Printf("failed to collect: %v", err)
+			cancel()
 		}
 		if r.Valid {
 			for _, decision := range r.Decisions {
 				decisionsUpdateChannel <- decision
-				for _, proposal := range proposals {
+				for _, proposal := range proposals { // concurrent access to proposals
 					if decision.SlotNumber == proposal.SlotNumber {
-						delete(proposals, proposal.SlotNumber)
+						delete(proposals, proposal.SlotNumber) // concurrent modification to proposals
 						if decision.Command != proposal.Command {
 							requests[serial] <- proposal.Command
 						}
@@ -165,8 +169,6 @@ func (s *replicaServer) Collect(ctx context.Context, in *pb.Empty) (*pb.Response
 	if len(responses) == 0 {
 		return &pb.Responses{Valid: false, Responses: nil}, nil
 	} else {
-		r := responses
-		responses = responses[:0]
-		return &pb.Responses{Valid: true, Responses: r}, nil
+		return &pb.Responses{Valid: true, Responses: responses}, nil
 	}
 }
