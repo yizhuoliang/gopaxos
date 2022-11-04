@@ -93,14 +93,16 @@ func leaderStateUpdateRoutine() {
 			pvalues := update.pvalues
 			var slotToBallot map[int32]int32 // map from slot number to ballot number to satisfy pmax
 			for _, bsc := range pvalues {
-				proposal, okProp := proposals[bsc.BallotNumber]
+				proposal, okProp := proposals[bsc.SlotNumber]
 				if okProp {
 					originalBallot, okBall := slotToBallot[proposal.SlotNumber]
 					if (okBall && originalBallot < bsc.BallotNumber) || !okBall {
+						// the previous proposal to that slot has a lower ballot number, or this is the first proposal to that slot
 						proposals[bsc.SlotNumber] = &pb.Proposal{SlotNumber: bsc.SlotNumber, Command: bsc.Command}
 						slotToBallot[proposal.SlotNumber] = bsc.BallotNumber
 					}
 				} else {
+					// there was originally no proposal for that slot
 					proposals[bsc.SlotNumber] = &pb.Proposal{SlotNumber: bsc.SlotNumber, Command: bsc.Command}
 					slotToBallot[proposal.SlotNumber] = bsc.BallotNumber
 				}
