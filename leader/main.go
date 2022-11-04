@@ -140,8 +140,8 @@ func ScoutRoutine(scoutBallotNumber int32) {
 	var pvalues []*pb.BSC
 	for i := 0; i < acceptorNum; i++ {
 		p1b := <-scoutCollectChannel
-		if p1b.AcceptorId >= 0 && p1b.BallotNumber >= 0 {
-			if p1b.BallotNumber != scoutBallotNumber {
+		if p1b.AcceptorId >= 0 {
+			if p1b.BallotNumber != scoutBallotNumber || p1b.BallotLeader != leaderId {
 				// do preemption
 				leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 3, preemptionBallotNumber: p1b.BallotNumber}
 				return
@@ -171,7 +171,7 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 
 	p1b, err := c.Scouting(ctx, &pb.P1A{LeaderId: leaderId, BallotNumber: scoutBallotNumber})
 	if err != nil {
-		scoutCollectChannel <- &pb.P1B{AcceptorId: -1, BallotNumber: -1, Accepted: nil}
+		scoutCollectChannel <- &pb.P1B{AcceptorId: -1}
 		return
 	}
 	scoutCollectChannel <- p1b
@@ -185,19 +185,19 @@ func CommanderRoutine(bsc *pb.BSC) {
 	}
 
 	// collect messages
-	replyCount := 0
+	acceptCount := 0
 	for i := 0; i < acceptorNum; i++ {
-		r := <-commanderCollectChannel
-		if r.BallotNumber == bsc.BallotNumber {
+		p2b := <-commanderCollectChannel
+		if p2b.BallotNumber == bsc.BallotNumber && p2b.BallotLeader == leaderId {
 			// waitfor:=waitfor-{α};
-			replyCount++
-			if replyCount > acceptorNum/2 {
+			acceptCount++
+			if acceptCount > acceptorNum/2 {
 				decisions = append(decisions, &pb.Decision{SlotNumber: bsc.SlotNumber, Command: bsc.Command})
 				return
 			}
-		} else if r.BallotNumber > 0 && r.AcceptorId > 0 {
+		} else if p2b.AcceptorId >= 0 {
 			// PREEMPTION
-			leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 3, preemptionBallotNumber: r.BallotNumber}
+			leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 3, preemptionBallotNumber: p2b.BallotNumber}
 			return
 		}
 	}
@@ -218,7 +218,7 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 
 	p2b, err := c.Commanding(ctx, &pb.P2A{LeaderId: leaderId, Bsc: bsc})
 	if err != nil {
-		commanderCollectChannel <- &pb.P2B{AcceptorId: -1, BallotNumber: -1}
+		commanderCollectChannel <- &pb.P2B{AcceptorId: -1}
 		return
 	}
 	commanderCollectChannel <- p2b

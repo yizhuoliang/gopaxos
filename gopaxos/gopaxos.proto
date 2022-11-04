@@ -67,7 +67,8 @@ message P1a {
 message P1b {
     int32 acceptorId = 1;
     int32 ballotNumber = 2;
-    repeated BSC accepted = 3;
+    int32 ballotLeader = 3;
+    repeated BSC accepted = 4;
 }
 
 message P2a {
