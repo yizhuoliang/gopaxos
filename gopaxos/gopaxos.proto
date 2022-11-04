@@ -78,6 +78,7 @@ message P2a {
 message P2b {
     int32 acceptorId = 1;
     int32 ballotNumber = 2;
+    int32 ballotLeader = 3;
 }
 
 message Empty {
