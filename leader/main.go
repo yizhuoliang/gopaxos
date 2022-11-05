@@ -21,8 +21,8 @@ var (
 	server   *grpc.Server
 	leaderId int32 // also considered as the serial of this acceptor
 
-	leaderPorts   = []string{"amd131.utah.cloudlab.us:50055", "amd130.utah.cloudlab.us:50056"}
-	acceptorPorts = []string{"amd126.utah.cloudlab.us:50057", "amd168.utah.cloudlab.us:50058", "amd143.utah.cloudlab.us:50059"}
+	leaderPorts   = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
+	acceptorPorts = []string{"127.0.0.1:50057", "127.0.0.1:50058", "127.0.0.1:50059"}
 
 	// leader states
 	ballotNumber int32 = 0
