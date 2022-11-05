@@ -49,7 +49,7 @@ func main() {
 		fmt.Scanf("%s", &input)
 
 		if input == "Operate" {
-			fmt.Printf("Enter the operation you want to perform")
+			fmt.Printf("Enter the operation you want to perform: ")
 			fmt.Scanf("%s", &input)
 			// generate a new commandID
 			commandCount += 1

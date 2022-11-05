@@ -162,6 +162,7 @@ func (s *replicaServer) Request(ctx context.Context, in *pb.Command) (*pb.Empty,
 	for i := 0; i < leaderNum; i++ {
 		requests[i] <- in
 	}
+	log.Printf("Request processed")
 	return &pb.Empty{Content: "success"}, nil
 }
 
