@@ -77,6 +77,7 @@ func MessengerRoutine(serial int) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		c.Reqeust(ctx, command)
+		log.Printf("Request sent")
 	}
 }
 
