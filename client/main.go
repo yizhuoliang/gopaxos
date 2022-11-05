@@ -21,7 +21,7 @@ const (
 var (
 	clientId       int32
 	commandCount   = 0
-	replicaPorts   = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
+	replicaPorts   = []string{"amd167.utah.cloudlab.us:50053", "amd159.utah.cloudlab.us:50054"}
 	commandBuffers [replicaNum]chan *pb.Command
 	responseBuffer chan *pb.Responses
 )

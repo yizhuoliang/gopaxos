@@ -14,7 +14,7 @@ import (
 var (
 	server        *grpc.Server
 	acceptorId    int32 // also considered as the serial of this acceptor
-	acceptorPorts       = []string{"127.0.0.1:50057", "127.0.0.1:50058", "127.0.0.1:50059"}
+	acceptorPorts       = []string{"amd126.utah.cloudlab.us:50057", "amd168.utah.cloudlab.us:50058", "amd143.utah.cloudlab.us:50059"}
 
 	ballotNumber int32 = -1
 	ballotLeader int32 = -1

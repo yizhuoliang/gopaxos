@@ -21,7 +21,7 @@ const (
 var (
 	server       *grpc.Server
 	replicaId    int32
-	replicaPorts = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
+	replicaPorts = []string{"amd167.utah.cloudlab.us:50053", "amd159.utah.cloudlab.us:50054"}
 
 	state     string = ""
 	slot_in   int32  = 1
@@ -30,7 +30,7 @@ var (
 	proposals map[int32]*pb.Proposal
 	decisions map[int32]*pb.Decision
 
-	leaderPorts = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
+	leaderPorts = []string{"amd131.utah.cloudlab.us:50055", "amd130.utah.cloudlab.us:50056"}
 
 	responses []*pb.Response
 
