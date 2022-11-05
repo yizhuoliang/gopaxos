@@ -69,6 +69,7 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.P1A) (*pb.P1B, err
 	}
 	currentBallotNumber := ballotNumber
 	currentBallotLeader := ballotLeader
+	log.Printf("Scouting received, current states: ballot number %d, ballot leader %d", ballotNumber, ballotLeader)
 	mutexChannel <- 1
 	return &pb.P1B{AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: acceptedList}, nil
 }
@@ -76,8 +77,10 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.P1A) (*pb.P1B, err
 func (s *acceptorServer) Commanding(ctx context.Context, in *pb.P2A) (*pb.P2B, error) {
 	<-mutexChannel
 	ballotNumber := ballotNumber // concurrency concern, avoid ballot number update during execution
+	log.Printf("Commanding received")
 	if in.Bsc.BallotNumber == ballotNumber && in.LeaderId == ballotLeader {
 		accepted[ballotNumber] = append(accepted[ballotNumber], in.Bsc)
+		log.Printf("Commanding accepted: ballot number %d, ballot leader %d", ballotNumber, ballotLeader)
 	}
 	currentBallotNumber := ballotNumber
 	currentBallotLeader := ballotLeader

@@ -129,6 +129,7 @@ func leaderStateUpdateRoutine() {
 
 // SUB-ROUTINES
 func ScoutRoutine(scoutBallotNumber int32) {
+	log.Printf("Scout spawned with ballot numebr %d", scoutBallotNumber)
 	scoutCollectChannel := make(chan *pb.P1B)
 	// send messages
 	for i := 0; i < acceptorNum; i++ {
@@ -144,12 +145,14 @@ func ScoutRoutine(scoutBallotNumber int32) {
 			if p1b.BallotNumber != scoutBallotNumber || p1b.BallotLeader != leaderId {
 				// do preemption
 				leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 3, preemptionBallotNumber: p1b.BallotNumber}
+				log.Printf("Scout send preemption")
 				return
 			}
 			acceptCount++
 			pvalues = append(pvalues, p1b.Accepted...)
 			if acceptCount > acceptorNum/2 {
 				leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 2, pvalues: pvalues, adoptionBallowNumber: scoutBallotNumber}
+				log.Printf("Scout send adoption")
 				return
 			}
 		}
@@ -178,6 +181,7 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 }
 
 func CommanderRoutine(bsc *pb.BSC) {
+	log.Printf("Commander spawned for ballot number %d, slot number %d, command id %s", bsc.BallotNumber, bsc.SlotNumber, bsc.Command.CommandId)
 	commanderCollectChannel := make(chan *pb.P2B)
 	// send messages
 	for i := 0; i < acceptorNum; i++ {
@@ -193,11 +197,13 @@ func CommanderRoutine(bsc *pb.BSC) {
 			acceptCount++
 			if acceptCount > acceptorNum/2 {
 				decisions = append(decisions, &pb.Decision{SlotNumber: bsc.SlotNumber, Command: bsc.Command})
+				log.Printf("The bsc is decided, commander exit")
 				return
 			}
 		} else if p2b.AcceptorId >= 0 {
 			// PREEMPTION
 			leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 3, preemptionBallotNumber: p2b.BallotNumber}
+			log.Printf("Commander send preemption")
 			return
 		}
 	}
@@ -227,6 +233,7 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 // gRPC HANDLERS
 func (s *leaderServer) Propose(ctx context.Context, in *pb.Proposal) (*pb.Empty, error) {
 	leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 1, newProposal: in} // Weird? Yes! Things can only be down after chekcing proposals
+	log.Printf("Received proposal with command %s and slot number %d", in.Command.CommandId, in.SlotNumber)
 	return &pb.Empty{Content: "success"}, nil
 }
 
