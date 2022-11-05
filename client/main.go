@@ -76,8 +76,12 @@ func MessengerRoutine(serial int) {
 		command := <-commandBuffers[serial]
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		c.Reqeust(ctx, command)
-		log.Printf("Request sent")
+		_, err = c.Reqeust(ctx, command)
+		if err != nil {
+			log.Printf("failed to request: %v", err)
+		} else {
+			log.Printf("Request sent")
+		}
 	}
 }
 
