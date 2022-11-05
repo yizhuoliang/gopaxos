@@ -52,7 +52,11 @@ func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	replicaId = int32(temp)
 
-	replicaStateUpdateChannel = make(chan *replicaStateUpdateRequest)
+	replicaStateUpdateChannel = make(chan *replicaStateUpdateRequest, 1)
+
+	for i := 0; i < leaderNum; i++ {
+		requests[i] = make(chan *pb.Command, 1)
+	}
 
 	for i := 0; i < leaderNum; i++ {
 		go MessengerRoutine(i)
