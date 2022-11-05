@@ -6,7 +6,7 @@ package gopaxos;
 
 // the service replicas provide to clients
 service ClientReplica {
-    rpc Reqeust (Command) returns (Empty) {}
+    rpc Request (Command) returns (Empty) {}
     rpc Collect (Empty) returns (Responses) {}
 }
 
