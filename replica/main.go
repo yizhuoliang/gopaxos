@@ -158,10 +158,10 @@ func CollectorRoutine(serial int) {
 
 // handlers
 func (s *replicaServer) Request(ctx context.Context, in *pb.Command) (*pb.Empty, error) {
+	log.Printf("Request with command id %s received", in.CommandId)
 	for i := 0; i < leaderNum; i++ {
 		requests[i] <- in
 	}
-	log.Printf("Request with command id %s received", in.CommandId)
 	return &pb.Empty{Content: "success"}, nil
 }
 
