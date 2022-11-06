@@ -95,6 +95,7 @@ func CollectorRoutine(serial int) {
 	c := pb.NewClientReplicaClient(conn)
 
 	for {
+		time.Sleep(time.Second)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		r, err := c.Collect(ctx, &pb.Empty{Content: "checking responses"})
 		if err != nil {

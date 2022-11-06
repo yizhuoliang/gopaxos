@@ -35,6 +35,7 @@ var (
 	responses []*pb.Response
 
 	replicaStateUpdateChannel chan *replicaStateUpdateRequest
+	notificationChannel       [leaderNum]chan int
 )
 
 type replicaServer struct {
@@ -52,13 +53,17 @@ func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	replicaId = int32(temp)
 
+	// initialization
+	proposals = make(map[int32]*pb.Proposal)
+	decisions = make(map[int32]*pb.Decision)
 	replicaStateUpdateChannel = make(chan *replicaStateUpdateRequest, 1)
-	go ReplicaStateUpdateRoutine()
-
 	for i := 0; i < leaderNum; i++ {
 		requests[i] = make(chan *pb.Command, 1)
+		notificationChannel[i] = make(chan int, 1)
 	}
 
+	// go!
+	go ReplicaStateUpdateRoutine()
 	for i := 0; i < leaderNum; i++ {
 		go MessengerRoutine(i)
 		go CollectorRoutine(i)
@@ -105,9 +110,9 @@ func ReplicaStateUpdateRoutine() {
 				responses = append(responses, &pb.Response{CommandId: decision.Command.CommandId})
 			}
 		} else if update.updateType == 2 {
-			log.Printf("processing uodate type 2...")
+			log.Printf("processing update type 2...")
 			// reference sudo code propose()
-			for slot_in < slot_out+WINDOW {
+			if slot_in < slot_out+WINDOW {
 				_, ok := decisions[slot_in]
 				if !ok {
 					request := <-requests[update.serial]
@@ -135,6 +140,7 @@ func MessengerRoutine(serial int) {
 
 	c := pb.NewReplicaLeaderClient(conn)
 	for {
+		<-notificationChannel[serial]
 		replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil, serial: serial, c: c}
 	}
 }
@@ -150,6 +156,7 @@ func CollectorRoutine(serial int) {
 	c := pb.NewReplicaLeaderClient(conn)
 
 	for {
+		time.Sleep(time.Second)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		r, err := c.Collect(ctx, &pb.Empty{Content: "checking responses"})
 		if err != nil {
@@ -167,8 +174,8 @@ func (s *replicaServer) Request(ctx context.Context, in *pb.Command) (*pb.Empty,
 	log.Printf("Request with command id %s received", in.CommandId)
 	for i := 0; i < leaderNum; i++ {
 		requests[i] <- in
+		notificationChannel[i] <- 1
 	}
-	log.Printf("Request processed")
 	return &pb.Empty{Content: "success"}, nil
 }
 

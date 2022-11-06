@@ -54,6 +54,8 @@ func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	leaderId = int32(temp)
 
+	// initialization
+	proposals = make(map[int32]*pb.Proposal)
 	leaderStateUpdateChannel = make(chan *leaderStateUpdateRequest, 1)
 
 	go leaderStateUpdateRoutine()
@@ -233,14 +235,10 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 // gRPC HANDLERS
 func (s *leaderServer) Propose(ctx context.Context, in *pb.Proposal) (*pb.Empty, error) {
 	leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 1, newProposal: in} // Weird? Yes! Things can only be down after chekcing proposals
-	log.Printf("Received proposal with command %s and slot number %d", in.Command.CommandId, in.SlotNumber)
+	log.Printf("Received proposal with commandId %s and slot number %d", in.Command.CommandId, in.SlotNumber)
 	return &pb.Empty{Content: "success"}, nil
 }
 
 func (s *leaderServer) Collect(ctx context.Context, in *pb.Empty) (*pb.Decisions, error) {
-	if len(decisions) == 0 {
-		return &pb.Decisions{Valid: false, Decisions: nil}, nil
-	} else {
-		return &pb.Decisions{Valid: true, Decisions: decisions}, nil
-	}
+	return &pb.Decisions{Valid: true, Decisions: decisions}, nil
 }

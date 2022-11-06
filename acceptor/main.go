@@ -27,15 +27,12 @@ type acceptorServer struct {
 	pb.UnimplementedLeaderAcceptorServer
 }
 
-type acceptorStateUpdate struct {
-	newNumber int32
-	newLeader int32
-}
-
 func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	acceptorId = int32(temp)
 
+	// initialization
+	accepted = make(map[int32][]*pb.BSC)
 	mutexChannel = make(chan int32, 1)
 	serve(acceptorPorts[acceptorId])
 }
