@@ -48,6 +48,7 @@ type leaderStateUpdateRequest struct {
 	pvalues                []*pb.BSC
 	adoptionBallowNumber   int32
 	preemptionBallotNumber int32
+	preemptionLeader       int32
 }
 
 func main() {
@@ -120,7 +121,7 @@ func leaderStateUpdateRoutine() {
 			active = true
 		} else if update.updateType == 3 {
 			// PREEMPTION
-			if update.preemptionBallotNumber > ballotNumber {
+			if update.preemptionBallotNumber > ballotNumber || update.preemptionLeader != leaderId {
 				active = false
 				ballotNumber = update.preemptionBallotNumber + 1
 				go ScoutRoutine(ballotNumber)
@@ -176,6 +177,7 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 
 	p1b, err := c.Scouting(ctx, &pb.P1A{LeaderId: leaderId, BallotNumber: scoutBallotNumber})
 	if err != nil {
+		log.Printf("scouting failed: %v", err)
 		scoutCollectChannel <- &pb.P1B{AcceptorId: -1}
 		return
 	}
@@ -205,7 +207,7 @@ func CommanderRoutine(bsc *pb.BSC) {
 		} else if p2b.AcceptorId >= 0 {
 			// PREEMPTION
 			leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 3, preemptionBallotNumber: p2b.BallotNumber}
-			log.Printf("Commander send preemption")
+			log.Printf("Commander send preemption, commander exit")
 			return
 		}
 	}

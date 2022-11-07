@@ -23,6 +23,7 @@ var (
 	commandCount   = 0
 	replicaPorts   = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
 	commandBuffers [replicaNum]chan *pb.Command
+	responded      []*pb.Response
 )
 
 func main() {
@@ -44,11 +45,11 @@ func main() {
 	// start handling user's operations
 	var input string
 	for {
-		fmt.Printf("Enter 'Operate' or 'Get' (^C to quit): ")
+		fmt.Printf("Enter 'operate' or 'check' (^C to quit):\n")
 		fmt.Scanf("%s", &input)
 
-		if input == "Operate" {
-			fmt.Printf("Enter the operation you want to perform: ")
+		if input == "operate" {
+			fmt.Printf("Enter the operation you want to perform:\n")
 			fmt.Scanf("%s", &input)
 			// generate a new commandID
 			commandCount += 1
@@ -56,6 +57,10 @@ func main() {
 			// push client commands to command buffers
 			for i := 0; i < replicaNum; i++ {
 				commandBuffers[i] <- &pb.Command{ClientId: clientId, CommandId: cid, Operation: input}
+			}
+		} else if input == "check" {
+			for _, response := range responded {
+				log.Printf("%s is responded\n", response.CommandId)
 			}
 		}
 	}
@@ -104,9 +109,7 @@ func CollectorRoutine(serial int) {
 		}
 		// print commandId of responded requests
 		if r.Valid {
-			for _, response := range r.Responses {
-				log.Printf("Command %s is responded", response.CommandId)
-			}
+			responded = r.Responses
 		}
 	}
 }

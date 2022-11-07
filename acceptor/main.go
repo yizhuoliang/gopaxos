@@ -34,6 +34,7 @@ func main() {
 	// initialization
 	accepted = make(map[int32][]*pb.BSC)
 	mutexChannel = make(chan int32, 1)
+	mutexChannel <- 1
 	serve(acceptorPorts[acceptorId])
 }
 
@@ -54,6 +55,7 @@ func serve(port string) {
 // gRPC handlers
 func (s *acceptorServer) Scouting(ctx context.Context, in *pb.P1A) (*pb.P1B, error) {
 	<-mutexChannel
+	log.Printf("Scouting received")
 	if in.BallotNumber > ballotNumber || (in.BallotNumber == ballotNumber && in.LeaderId != ballotLeader) {
 		ballotNumber = in.BallotNumber
 		ballotLeader = in.LeaderId
