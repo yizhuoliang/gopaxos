@@ -107,7 +107,7 @@ func ReplicaStateUpdateRoutine() {
 				slot_out++
 				// end atomic
 				log.Printf("Operation %s is performed", decision.Command.Operation)
-				responses = append(responses, &pb.Response{CommandId: decision.Command.CommandId})
+				responses = append(responses, &pb.Response{Comamnd: decision.Command})
 			}
 		} else if update.updateType == 2 {
 			log.Printf("processing update type 2...")

@@ -28,7 +28,7 @@ message Command {
 
 // should not send response to client until the command's slot is decided
 message Response {
-    string commandId = 1;
+    Command comamnd = 1;
 }
 
 message Responses {

@@ -60,7 +60,7 @@ func main() {
 			}
 		} else if input == "check" {
 			for _, response := range responded {
-				log.Printf("%s is responded\n", response.CommandId)
+				log.Printf("%s is responded: %s\n", response.Comamnd.CommandId, response.Comamnd.Operation)
 			}
 		}
 	}
