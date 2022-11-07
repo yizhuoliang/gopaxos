@@ -45,11 +45,11 @@ func main() {
 	// start handling user's operations
 	var input string
 	for {
-		fmt.Printf("Enter 'operate' or 'check' (^C to quit):\n")
+		fmt.Printf("Enter 'operate' or 'check' (^C to quit): ")
 		fmt.Scanf("%s", &input)
 
 		if input == "operate" {
-			fmt.Printf("Enter the operation you want to perform:\n")
+			fmt.Printf("Enter the operation you want to perform: ")
 			fmt.Scanf("%s", &input)
 			// generate a new commandID
 			commandCount += 1
@@ -69,7 +69,7 @@ func main() {
 func MessengerRoutine(serial int) {
 	conn, err := grpc.Dial(replicaPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Printf("failed to connect: %v", err)
+		log.Printf("failed to connect: %v\n", err)
 		return
 	}
 	defer conn.Close()
@@ -81,10 +81,8 @@ func MessengerRoutine(serial int) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		_, err = c.Request(ctx, command)
 		if err != nil {
-			log.Printf("failed to request: %v", err)
+			log.Printf("failed to request: %v\n", err)
 			cancel()
-		} else {
-			log.Printf("Request sent")
 		}
 	}
 }
@@ -92,7 +90,7 @@ func MessengerRoutine(serial int) {
 func CollectorRoutine(serial int) {
 	conn, err := grpc.Dial(replicaPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Printf("failed to connect: %v", err)
+		log.Printf("failed to connect: %v\n", err)
 		return
 	}
 	defer conn.Close()
@@ -102,7 +100,7 @@ func CollectorRoutine(serial int) {
 	for {
 		time.Sleep(time.Second)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		r, err := c.Collect(ctx, &pb.Empty{Content: "checking responses"})
+		r, err := c.Collect(ctx, &pb.Empty{Content: "checking responses\n"})
 		if err != nil {
 			log.Printf("failed to collect: %v", err)
 			cancel()
