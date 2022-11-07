@@ -32,6 +32,8 @@ var (
 	leaderStateUpdateChannel chan *leaderStateUpdateRequest
 
 	decisions []*pb.Decision
+
+	// deathChannel chan int
 )
 
 type leaderServer struct {
@@ -64,7 +66,25 @@ func main() {
 	// spawn the initial Scout
 	go ScoutRoutine(ballotNumber)
 
+	// monitor acceptor communication failures
+	// deathCount := 0
+	// deathChannel = make(chan int)
+	// upAcceptors := make(map[int]bool)
+	// for i := 0; i < acceptorNum; i++ {
+	// 	upAcceptors[i] = true
+	// }
 	serve(leaderPorts[leaderId])
+
+	// for {
+	// 	serial := <- deathChannel
+	// 	if upAcceptors[serial] == true {
+	// 		upAcceptors[serial] = false
+	// 		deathCount++
+	// 		if deathCount > acceptorNum / 2 {
+	// 			return
+	// 		}
+	// 	}
+	// }
 }
 
 func serve(port string) {

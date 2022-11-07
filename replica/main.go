@@ -32,8 +32,6 @@ var (
 
 	leaderPorts = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
 
-	responses []*pb.Response
-
 	replicaStateUpdateChannel chan *replicaStateUpdateRequest
 	notificationChannel       [leaderNum]chan int
 )
@@ -107,7 +105,6 @@ func ReplicaStateUpdateRoutine() {
 				slot_out++
 				// end atomic
 				log.Printf("Operation %s is performed", decision.Command.Operation)
-				responses = append(responses, &pb.Response{Command: decision.Command})
 			}
 		} else if update.updateType == 2 {
 			log.Printf("processing update type 2...")
@@ -180,5 +177,9 @@ func (s *replicaServer) Request(ctx context.Context, in *pb.Command) (*pb.Empty,
 }
 
 func (s *replicaServer) Collect(ctx context.Context, in *pb.Empty) (*pb.Responses, error) {
-	return &pb.Responses{Valid: true, Responses: responses}, nil
+	var responseList []*pb.Response
+	for _, decision := range decisions {
+		responseList = append(responseList, &pb.Response{Command: decision.Command})
+	}
+	return &pb.Responses{Valid: true, Responses: responseList}, nil
 }
