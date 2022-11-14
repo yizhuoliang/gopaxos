@@ -89,22 +89,25 @@ func ReplicaStateUpdateRoutine() {
 	for {
 		update := <-replicaStateUpdateChannel
 		if update.updateType == 1 {
-			// reference sudo code perform()
+			// reference sudo code receive() -> perform()
 			for _, decision := range update.newDecisions {
 				decisions[decision.SlotNumber] = decision
-				for _, proposal := range proposals {
-					if decision.SlotNumber == proposal.SlotNumber {
-						delete(proposals, proposal.SlotNumber)
-						if decision.Command != proposal.Command {
-							requests[update.serial] <- proposal.Command
+				d, ok := decisions[slot_out]
+				if ok {
+					p, ok := proposals[slot_out]
+					if ok {
+						delete(proposals, slot_out)
+						if d.Command != p.Command {
+							requests[update.serial] <- p.Command
+							notificationChannel[update.serial] <- 1
 						}
 					}
+					// atomic
+					state = state + decision.Command.Operation
+					slot_out++
+					// end atomic
+					log.Printf("Operation %s is performed", decision.Command.Operation)
 				}
-				// atomic
-				state = state + decision.Command.Operation
-				slot_out++
-				// end atomic
-				log.Printf("Operation %s is performed", decision.Command.Operation)
 			}
 		} else if update.updateType == 2 {
 			log.Printf("processing update type 2...")
