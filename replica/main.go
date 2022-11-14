@@ -34,6 +34,7 @@ var (
 
 	replicaStateUpdateChannel chan *replicaStateUpdateRequest
 	notificationChannel       [leaderNum]chan int
+	slotInUpdateChannel       [leaderNum]chan int
 )
 
 type replicaServer struct {
@@ -58,10 +59,12 @@ func main() {
 	for i := 0; i < leaderNum; i++ {
 		requests[i] = make(chan *pb.Command, 1)
 		notificationChannel[i] = make(chan int, 1)
+		slotInUpdateChannel[i] = make(chan int, 1)
 	}
 
 	// go!
 	go ReplicaStateUpdateRoutine()
+	go SlotInUpdateRoutine()
 	for i := 0; i < leaderNum; i++ {
 		go MessengerRoutine(i)
 		go CollectorRoutine(i)
@@ -89,6 +92,7 @@ func ReplicaStateUpdateRoutine() {
 	for {
 		update := <-replicaStateUpdateChannel
 		if update.updateType == 1 {
+			log.Printf("messenger %d slot_out %d processing update type 1...", update.serial, slot_out)
 			// reference sudo code receive() -> perform()
 			for _, decision := range update.newDecisions {
 				decisions[decision.SlotNumber] = decision
@@ -97,7 +101,7 @@ func ReplicaStateUpdateRoutine() {
 					p, ok := proposals[slot_out]
 					if ok {
 						delete(proposals, slot_out)
-						if d.Command != p.Command {
+						if d.Command.CommandId != p.Command.CommandId {
 							requests[update.serial] <- p.Command
 							notificationChannel[update.serial] <- 1
 						}
@@ -110,7 +114,7 @@ func ReplicaStateUpdateRoutine() {
 				}
 			}
 		} else if update.updateType == 2 {
-			log.Printf("processing update type 2...")
+			log.Printf("messenger %d slot_in %d processing update type 2...", update.serial, slot_in)
 			// reference sudo code propose()
 			if slot_in < slot_out+WINDOW {
 				_, ok := decisions[slot_in]
@@ -124,9 +128,20 @@ func ReplicaStateUpdateRoutine() {
 						cancel()
 					}
 				}
-				slot_in++
+				slotInUpdateChannel[update.serial] <- 1
 			}
 		}
+	}
+}
+
+func SlotInUpdateRoutine() {
+	for {
+		log.Print("updating slot_in...")
+		for i := 0; i < leaderNum; i++ {
+			<-slotInUpdateChannel[i]
+		}
+		slot_in++
+		log.Print("slot_in updated successfully")
 	}
 }
 
@@ -181,7 +196,7 @@ func (s *replicaServer) Request(ctx context.Context, in *pb.Command) (*pb.Empty,
 
 func (s *replicaServer) Collect(ctx context.Context, in *pb.Empty) (*pb.Responses, error) {
 	var responseList []*pb.Response
-	for _, decision := range decisions {
+	for _, decision := range decisions { // concurrent access (fatal)
 		responseList = append(responseList, &pb.Response{Command: decision.Command})
 	}
 	return &pb.Responses{Valid: true, Responses: responseList}, nil
