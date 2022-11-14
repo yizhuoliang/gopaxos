@@ -13,6 +13,7 @@ service ClientReplica {
 service ReplicaLeader {
     rpc Propose (Proposal) returns (Empty) {}
     rpc Collect (Empty) returns (Decisions) {}
+    rpc Heartbeat (Empty) returns (Empty) {} // THIS IS NOT FOR REPLICA BUT FOR LEADERS
 }
 
 service LeaderAcceptor {

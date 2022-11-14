@@ -174,6 +174,7 @@ func ScoutRoutine(scoutBallotNumber int32) {
 			acceptCount++
 			pvalues = append(pvalues, p1b.Accepted...)
 			if acceptCount > acceptorNum/2 {
+				// do adoption
 				leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 2, pvalues: pvalues, adoptionBallowNumber: scoutBallotNumber}
 				log.Printf("Scout send adoption")
 				return

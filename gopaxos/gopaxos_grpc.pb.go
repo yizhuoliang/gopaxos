@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.19.4
-// source: gopaxos/gopaxos.proto
+// source: gopaxos.proto
 
 package __
 
@@ -137,7 +137,7 @@ var ClientReplica_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "gopaxos/gopaxos.proto",
+	Metadata: "gopaxos.proto",
 }
 
 // ReplicaLeaderClient is the client API for ReplicaLeader service.
@@ -146,6 +146,7 @@ var ClientReplica_ServiceDesc = grpc.ServiceDesc{
 type ReplicaLeaderClient interface {
 	Propose(ctx context.Context, in *Proposal, opts ...grpc.CallOption) (*Empty, error)
 	Collect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Decisions, error)
+	Heartbeat(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type replicaLeaderClient struct {
@@ -174,12 +175,22 @@ func (c *replicaLeaderClient) Collect(ctx context.Context, in *Empty, opts ...gr
 	return out, nil
 }
 
+func (c *replicaLeaderClient) Heartbeat(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/gopaxos.ReplicaLeader/Heartbeat", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ReplicaLeaderServer is the server API for ReplicaLeader service.
 // All implementations must embed UnimplementedReplicaLeaderServer
 // for forward compatibility
 type ReplicaLeaderServer interface {
 	Propose(context.Context, *Proposal) (*Empty, error)
 	Collect(context.Context, *Empty) (*Decisions, error)
+	Heartbeat(context.Context, *Empty) (*Empty, error)
 	mustEmbedUnimplementedReplicaLeaderServer()
 }
 
@@ -192,6 +203,9 @@ func (UnimplementedReplicaLeaderServer) Propose(context.Context, *Proposal) (*Em
 }
 func (UnimplementedReplicaLeaderServer) Collect(context.Context, *Empty) (*Decisions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Collect not implemented")
+}
+func (UnimplementedReplicaLeaderServer) Heartbeat(context.Context, *Empty) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Heartbeat not implemented")
 }
 func (UnimplementedReplicaLeaderServer) mustEmbedUnimplementedReplicaLeaderServer() {}
 
@@ -242,6 +256,24 @@ func _ReplicaLeader_Collect_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ReplicaLeader_Heartbeat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReplicaLeaderServer).Heartbeat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gopaxos.ReplicaLeader/Heartbeat",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReplicaLeaderServer).Heartbeat(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ReplicaLeader_ServiceDesc is the grpc.ServiceDesc for ReplicaLeader service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -257,9 +289,13 @@ var ReplicaLeader_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Collect",
 			Handler:    _ReplicaLeader_Collect_Handler,
 		},
+		{
+			MethodName: "Heartbeat",
+			Handler:    _ReplicaLeader_Heartbeat_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "gopaxos/gopaxos.proto",
+	Metadata: "gopaxos.proto",
 }
 
 // LeaderAcceptorClient is the client API for LeaderAcceptor service.
@@ -381,5 +417,5 @@ var LeaderAcceptor_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "gopaxos/gopaxos.proto",
+	Metadata: "gopaxos.proto",
 }
