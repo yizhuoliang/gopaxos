@@ -25,7 +25,7 @@ var (
 	leaderPorts   = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
 	acceptorPorts = []string{"127.0.0.1:50057", "127.0.0.1:50058", "127.0.0.1:50059"}
 
-	heartbeatClients []*pb.ReplicaLeaderClient
+	heartbeatClients [leaderNum]*pb.ReplicaLeaderClient
 
 	// leader states
 	ballotNumber int32 = 0
@@ -65,11 +65,14 @@ func main() {
 
 	go leaderStateUpdateRoutine()
 
-	serve(leaderPorts[leaderId])
+	go serve(leaderPorts[leaderId])
 	setupHeartbeat()
 
 	// spawn the initial Scout
-	go ScoutRoutine(ballotNumber)
+	go ScoutRoutine(ballotNumber, false)
+
+	preventExit := make(chan int)
+	<-preventExit
 }
 
 func serve(port string) {
@@ -96,7 +99,6 @@ func setupHeartbeat() {
 				if err != nil {
 					continue
 				}
-				defer conn.Close()
 
 				c := pb.NewReplicaLeaderClient(conn)
 				heartbeatClients[i] = &c
@@ -153,18 +155,25 @@ func leaderStateUpdateRoutine() {
 			if update.preemptionBallotNumber > ballotNumber || update.preemptionLeader != leaderId {
 				active = false
 				ballotNumber = update.preemptionBallotNumber + 1
-				go ScoutRoutine(ballotNumber)
+				go ScoutRoutine(ballotNumber, false)
 			}
 		} else if update.updateType == 4 {
 			// RETURNED PREEMPTION
-			go ScoutRoutine(ballotNumber)
+			go ScoutRoutine(ballotNumber, true)
 		}
 	}
 }
 
 // SUB-ROUTINES
-func ScoutRoutine(scoutBallotNumber int32) {
-	log.Printf("Scout spawned with ballot numebr %d", scoutBallotNumber)
+func ScoutRoutine(scoutBallotNumber int32, returned bool) {
+
+	if !returned {
+		log.Printf("Scout spawned with ballot numebr %d", scoutBallotNumber)
+	}
+
+	if returned {
+		time.Sleep(time.Second) // avoid heartbeat too frequent
+	}
 
 	beatCollectChannle := make(chan bool)
 
@@ -178,7 +187,7 @@ func ScoutRoutine(scoutBallotNumber int32) {
 	// collecting beat results
 	hasActive := false
 	for i := 0; i < leaderNum-1; i++ {
-		if <-beatCollectChannle {
+		if <-beatCollectChannle == true {
 			hasActive = true
 		}
 	}
@@ -222,12 +231,14 @@ func ScoutRoutine(scoutBallotNumber int32) {
 
 func BeatMessenger(serial int, beatCollectChannel chan bool) {
 	heartbeatClient := heartbeatClients[serial]
+	if heartbeatClient == nil {
+	}
 	if heartbeatClient != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
 		beat, err := (*heartbeatClient).Heartbeat(ctx, &pb.Empty{Content: "checking heartbeat"})
-		if err != nil {
+		if err == nil {
 			beatCollectChannel <- beat.GetActive()
 			return
 		}
@@ -316,4 +327,8 @@ func (s *leaderServer) Propose(ctx context.Context, in *pb.Proposal) (*pb.Empty,
 
 func (s *leaderServer) Collect(ctx context.Context, in *pb.Empty) (*pb.Decisions, error) {
 	return &pb.Decisions{Valid: true, Decisions: decisions}, nil
+}
+
+func (s *leaderServer) Heartbeat(ctx context.Context, in *pb.Empty) (*pb.Beat, error) {
+	return &pb.Beat{Active: active}, nil
 }
