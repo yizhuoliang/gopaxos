@@ -15,6 +15,7 @@ import (
 
 const (
 	acceptorNum = 3
+	leaderNum   = 2
 )
 
 var (
@@ -24,6 +25,8 @@ var (
 	leaderPorts   = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
 	acceptorPorts = []string{"127.0.0.1:50057", "127.0.0.1:50058", "127.0.0.1:50059"}
 
+	heartbeatClients []*pb.ReplicaLeaderClient
+
 	// leader states
 	ballotNumber int32 = 0
 	active       bool  = false
@@ -32,8 +35,6 @@ var (
 	leaderStateUpdateChannel chan *leaderStateUpdateRequest
 
 	decisions []*pb.Decision
-
-	// deathChannel chan int
 )
 
 type leaderServer struct {
@@ -44,6 +45,7 @@ type leaderServer struct {
 // 1 - new proposal, asked by handlers
 // 2 - adoption
 // 3 - preemption
+// 4 - returned preemption
 type leaderStateUpdateRequest struct {
 	updateType             int
 	newProposal            *pb.Proposal
@@ -63,28 +65,11 @@ func main() {
 
 	go leaderStateUpdateRoutine()
 
+	serve(leaderPorts[leaderId])
+	setupHeartbeat()
+
 	// spawn the initial Scout
 	go ScoutRoutine(ballotNumber)
-
-	// monitor acceptor communication failures
-	// deathCount := 0
-	// deathChannel = make(chan int)
-	// upAcceptors := make(map[int]bool)
-	// for i := 0; i < acceptorNum; i++ {
-	// 	upAcceptors[i] = true
-	// }
-	serve(leaderPorts[leaderId])
-
-	// for {
-	// 	serial := <- deathChannel
-	// 	if upAcceptors[serial] == true {
-	// 		upAcceptors[serial] = false
-	// 		deathCount++
-	// 		if deathCount > acceptorNum / 2 {
-	// 			return
-	// 		}
-	// 	}
-	// }
 }
 
 func serve(port string) {
@@ -101,7 +86,31 @@ func serve(port string) {
 	}
 }
 
-// TODO: expand this
+func setupHeartbeat() {
+	log.Printf("waiting for other leaders...")
+	readyCount := 0
+	for {
+		for i, port := range leaderPorts {
+			if i != int(leaderId) && heartbeatClients[i] == nil {
+				conn, err := grpc.Dial(port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+				if err != nil {
+					continue
+				}
+				defer conn.Close()
+
+				c := pb.NewReplicaLeaderClient(conn)
+				heartbeatClients[i] = &c
+				readyCount++
+				if readyCount == leaderNum-1 {
+					log.Printf("heartbeat clients ready")
+					return
+				}
+			}
+		}
+	}
+}
+
+// CORE FUNCTIONS
 func leaderStateUpdateRoutine() {
 	for {
 		update := <-leaderStateUpdateChannel
@@ -146,6 +155,9 @@ func leaderStateUpdateRoutine() {
 				ballotNumber = update.preemptionBallotNumber + 1
 				go ScoutRoutine(ballotNumber)
 			}
+		} else if update.updateType == 4 {
+			// RETURNED PREEMPTION
+			go ScoutRoutine(ballotNumber)
 		}
 	}
 }
@@ -153,6 +165,31 @@ func leaderStateUpdateRoutine() {
 // SUB-ROUTINES
 func ScoutRoutine(scoutBallotNumber int32) {
 	log.Printf("Scout spawned with ballot numebr %d", scoutBallotNumber)
+
+	beatCollectChannle := make(chan bool)
+
+	// testing if an active leader is already working
+	for i, heartbeatClient := range heartbeatClients {
+		if heartbeatClient != nil {
+			go BeatMessenger(i, beatCollectChannle)
+		}
+	}
+
+	// collecting beat results
+	hasActive := false
+	for i := 0; i < leaderNum-1; i++ {
+		if <-beatCollectChannle {
+			hasActive = true
+		}
+	}
+
+	// return this preemption if an active leader already exists
+	if hasActive {
+		// return preemption
+		leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 4}
+		return
+	}
+
 	scoutCollectChannel := make(chan *pb.P1B)
 	// send messages
 	for i := 0; i < acceptorNum; i++ {
@@ -181,6 +218,21 @@ func ScoutRoutine(scoutBallotNumber int32) {
 			}
 		}
 	}
+}
+
+func BeatMessenger(serial int, beatCollectChannel chan bool) {
+	heartbeatClient := heartbeatClients[serial]
+	if heartbeatClient != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		beat, err := (*heartbeatClient).Heartbeat(ctx, &pb.Empty{Content: "checking heartbeat"})
+		if err != nil {
+			beatCollectChannel <- beat.GetActive()
+			return
+		}
+	}
+	beatCollectChannel <- false
 }
 
 func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNumber int32) {

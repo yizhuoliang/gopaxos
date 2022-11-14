@@ -13,7 +13,7 @@ service ClientReplica {
 service ReplicaLeader {
     rpc Propose (Proposal) returns (Empty) {}
     rpc Collect (Empty) returns (Decisions) {}
-    rpc Heartbeat (Empty) returns (Empty) {} // THIS IS NOT FOR REPLICA BUT FOR LEADERS
+    rpc Heartbeat (Empty) returns (Beat) {} // THIS IS NOT FOR REPLICA BUT FOR LEADERS
 }
 
 service LeaderAcceptor {
@@ -81,6 +81,10 @@ message P2b {
     int32 acceptorId = 1;
     int32 ballotNumber = 2;
     int32 ballotLeader = 3;
+}
+
+message Beat {
+    bool active = 1;
 }
 
 message Empty {
