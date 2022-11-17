@@ -19,12 +19,18 @@ const (
 )
 
 var (
-	clientId       int32
-	commandCount   = 0
-	replicaPorts   = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
-	commandBuffers [replicaNum]chan *pb.Command
-	responded      []*pb.Response
+	clientId              int32
+	commandCount          = 0
+	replicaPorts          = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
+	commandBuffers        [replicaNum]chan *pb.Command
+	responded             []*pb.Response
+	responseUpdateChannel chan *responseRequest
 )
+
+type responseRequest struct {
+	rType       int
+	newResponse []*pb.Response
+}
 
 func main() {
 	// input client id
@@ -35,12 +41,14 @@ func main() {
 	for i := 0; i < replicaNum; i++ {
 		commandBuffers[i] = make(chan *pb.Command, 1)
 	}
+	responseUpdateChannel = make(chan *responseRequest, 1)
 
 	// launch messenger and collector routines
 	for i := 0; i < replicaNum; i++ {
 		go MessengerRoutine(i)
 		go CollectorRoutine(i)
 	}
+	go responseUpdateRoutine()
 
 	// start handling user's operations
 	var input string
@@ -59,9 +67,7 @@ func main() {
 				commandBuffers[i] <- &pb.Command{ClientId: clientId, CommandId: cid, Operation: input}
 			}
 		} else if input == "check" {
-			for _, response := range responded {
-				log.Printf("%s is responded: %s\n", response.Command.CommandId, response.Command.Operation)
-			}
+			responseUpdateChannel <- &responseRequest{rType: 2, newResponse: nil}
 		}
 	}
 }
@@ -107,7 +113,20 @@ func CollectorRoutine(serial int) {
 		}
 		// print commandId of responded requests
 		if r.Valid {
-			responded = r.Responses
+			responseUpdateChannel <- &responseRequest{rType: 1, newResponse: r.Responses}
+		}
+	}
+}
+
+func responseUpdateRoutine() {
+	for {
+		r := <-responseUpdateChannel
+		if r.rType == 1 {
+			responded = r.newResponse
+		} else {
+			for _, response := range responded {
+				log.Printf("%s is responded: %s\n", response.Command.CommandId, response.Command.Operation)
+			}
 		}
 	}
 }
