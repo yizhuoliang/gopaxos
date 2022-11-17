@@ -25,6 +25,7 @@ var (
 	commandBuffers        [replicaNum]chan *pb.Command
 	responded             []*pb.Response
 	responseUpdateChannel chan *responseRequest
+	IOBlockChannel        chan int // preserve input output order
 )
 
 type responseRequest struct {
@@ -52,6 +53,7 @@ func main() {
 
 	// start handling user's operations
 	var input string
+	IOBlockChannel = make(chan int, 1)
 	for {
 		fmt.Printf("Enter 'operate' or 'check' (^C to quit): ")
 		fmt.Scanf("%s", &input)
@@ -61,13 +63,14 @@ func main() {
 			fmt.Scanf("%s", &input)
 			// generate a new commandID
 			commandCount += 1
-			cid := strconv.Itoa(int(clientId)) + "-" + strconv.Itoa(commandCount)
+			cid := "client" + strconv.Itoa(int(clientId)) + "-" + strconv.Itoa(commandCount)
 			// push client commands to command buffers
 			for i := 0; i < replicaNum; i++ {
 				commandBuffers[i] <- &pb.Command{ClientId: clientId, CommandId: cid, Operation: input}
 			}
 		} else if input == "check" {
 			responseUpdateChannel <- &responseRequest{rType: 2, newResponse: nil}
+			<-IOBlockChannel
 		}
 	}
 }
@@ -127,6 +130,7 @@ func responseUpdateRoutine() {
 			for _, response := range responded {
 				log.Printf("%s is responded: %s\n", response.Command.CommandId, response.Command.Operation)
 			}
+			IOBlockChannel <- 1
 		}
 	}
 }
