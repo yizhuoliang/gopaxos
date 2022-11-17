@@ -92,7 +92,8 @@ func ReplicaStateUpdateRoutine() {
 	for {
 		update := <-replicaStateUpdateChannel
 		if update.updateType == 1 {
-			log.Printf("messenger %d slot_out %d processing update type 1...", update.serial, slot_out)
+			// RECEIVE DECISION + PERFORM
+			// log.Printf("messenger %d slot_out %d processing update type 1...", update.serial, slot_out)
 			// reference sudo code receive() -> perform()
 			for _, decision := range update.newDecisions {
 				decisions[decision.SlotNumber] = decision
@@ -161,6 +162,7 @@ func MessengerRoutine(serial int) {
 }
 
 func CollectorRoutine(serial int) {
+	logOutput := true
 	conn, err := grpc.Dial(leaderPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("failed to connect: %v", err)
@@ -175,10 +177,15 @@ func CollectorRoutine(serial int) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		r, err := c.Collect(ctx, &pb.Empty{Content: "checking responses"})
 		if err != nil {
-			log.Printf("failed to collect: %v", err)
+			if logOutput {
+				log.Printf("failed to collect: %v", err)
+			}
 			cancel()
+			logOutput = false
+			continue
 		}
 		if r.Valid {
+			logOutput = true
 			replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 1, newDecisions: r.Decisions, serial: serial}
 		}
 	}
