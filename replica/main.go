@@ -35,6 +35,8 @@ var (
 	replicaStateUpdateChannel chan *replicaStateUpdateRequest
 	notificationChannel       [leaderNum]chan int
 	slotInUpdateChannel       [leaderNum]chan int
+
+	mutexChannel chan int32
 )
 
 type replicaServer struct {
@@ -61,6 +63,8 @@ func main() {
 		notificationChannel[i] = make(chan int, 1)
 		slotInUpdateChannel[i] = make(chan int, 1)
 	}
+	mutexChannel = make(chan int32, 1)
+	mutexChannel <- 1
 
 	// go!
 	go ReplicaStateUpdateRoutine()
@@ -91,6 +95,7 @@ func serve(port string) {
 func ReplicaStateUpdateRoutine() {
 	for {
 		update := <-replicaStateUpdateChannel
+		<-mutexChannel
 		if update.updateType == 1 {
 			// RECEIVE DECISION + PERFORM
 			// log.Printf("messenger %d slot_out %d processing update type 1...", update.serial, slot_out)
@@ -132,6 +137,7 @@ func ReplicaStateUpdateRoutine() {
 				slotInUpdateChannel[update.serial] <- 1
 			}
 		}
+		mutexChannel <- 1
 	}
 }
 
@@ -203,8 +209,14 @@ func (s *replicaServer) Request(ctx context.Context, in *pb.Command) (*pb.Empty,
 
 func (s *replicaServer) Collect(ctx context.Context, in *pb.Empty) (*pb.Responses, error) {
 	var responseList []*pb.Response
-	for _, decision := range decisions { // concurrent access (fatal)
-		responseList = append(responseList, &pb.Response{Command: decision.Command})
+	var i int32 = 1
+	<-mutexChannel
+	_, ok := decisions[i]
+	for ok { // concurrent access (fatal)
+		responseList = append(responseList, &pb.Response{Command: decisions[i].Command})
+		i++
+		_, ok = decisions[i]
 	}
+	mutexChannel <- 1
 	return &pb.Responses{Valid: true, Responses: responseList}, nil
 }
