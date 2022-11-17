@@ -24,14 +24,10 @@ var (
 	replicaPorts          = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
 	commandBuffers        [replicaNum]chan *pb.Command
 	responded             []*pb.Response
-	responseUpdateChannel chan *responseRequest
+	responseUpdateChannel chan []*pb.Response
 	IOBlockChannel        chan int // preserve input output order
+	checkSignal           chan int
 )
-
-type responseRequest struct {
-	rType       int
-	newResponse []*pb.Response
-}
 
 func main() {
 	// input client id
@@ -42,7 +38,8 @@ func main() {
 	for i := 0; i < replicaNum; i++ {
 		commandBuffers[i] = make(chan *pb.Command, 1)
 	}
-	responseUpdateChannel = make(chan *responseRequest, 1)
+	responseUpdateChannel = make(chan []*pb.Response, 1)
+	checkSignal = make(chan int, 1)
 
 	// launch messenger and collector routines
 	for i := 0; i < replicaNum; i++ {
@@ -69,7 +66,7 @@ func main() {
 				commandBuffers[i] <- &pb.Command{ClientId: clientId, CommandId: cid, Operation: input}
 			}
 		} else if input == "check" {
-			responseUpdateChannel <- &responseRequest{rType: 2, newResponse: nil}
+			checkSignal <- 1
 			<-IOBlockChannel
 		}
 	}
@@ -107,7 +104,7 @@ func CollectorRoutine(serial int) {
 	c := pb.NewClientReplicaClient(conn)
 
 	for {
-		time.Sleep(time.Second)
+		<-checkSignal
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		r, err := c.Collect(ctx, &pb.Empty{Content: "checking responses\n"})
 		if err != nil {
@@ -116,7 +113,7 @@ func CollectorRoutine(serial int) {
 		}
 		// print commandId of responded requests
 		if r.Valid {
-			responseUpdateChannel <- &responseRequest{rType: 1, newResponse: r.Responses}
+			responseUpdateChannel <- r.Responses
 		}
 	}
 }
@@ -124,13 +121,10 @@ func CollectorRoutine(serial int) {
 func responseUpdateRoutine() {
 	for {
 		r := <-responseUpdateChannel
-		if r.rType == 1 {
-			responded = r.newResponse
-		} else {
-			for _, response := range responded {
-				log.Printf("%s is responded: %s\n", response.Command.CommandId, response.Command.Operation)
-			}
-			IOBlockChannel <- 1
+		responded = r
+		for _, response := range responded {
+			log.Printf("%s is responded: %s\n", response.Command.CommandId, response.Command.Operation)
 		}
+		IOBlockChannel <- 1
 	}
 }
