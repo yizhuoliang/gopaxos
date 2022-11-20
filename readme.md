@@ -2,6 +2,7 @@
 Another system we built - [ZooKeeper Atomic Broadcast](https://github.com/Rxu64/gozab)
 
 ## System Structure
+![structure.png](./structure.png)
 ### Client/main.go
 - send operations
 - periodically check performed operations
