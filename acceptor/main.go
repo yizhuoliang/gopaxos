@@ -77,7 +77,8 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.P2A) (*pb.P2B, e
 	<-mutexChannel
 	ballotNumber := ballotNumber // concurrency concern, avoid ballot number update during execution
 	log.Printf("Commanding received")
-	if in.Bsc.BallotNumber == ballotNumber && in.LeaderId == ballotLeader {
+	if in.Bsc.BallotNumber >= ballotNumber && in.LeaderId == ballotLeader {
+		ballotNumber = in.Bsc.BallotNumber
 		accepted[ballotNumber] = append(accepted[ballotNumber], in.Bsc)
 		log.Printf("Commanding accepted: ballot number %d, ballot leader %d", ballotNumber, ballotLeader)
 	}
