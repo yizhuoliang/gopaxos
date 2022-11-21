@@ -187,7 +187,7 @@ func ScoutRoutine(scoutBallotNumber int32, returned bool) {
 	// collecting beat results
 	hasActive := false
 	for i := 0; i < leaderNum-1; i++ {
-		if <-beatCollectChannle == true {
+		if <-beatCollectChannle {
 			hasActive = true
 		}
 	}
@@ -231,8 +231,6 @@ func ScoutRoutine(scoutBallotNumber int32, returned bool) {
 
 func BeatMessenger(serial int, beatCollectChannel chan bool) {
 	heartbeatClient := heartbeatClients[serial]
-	if heartbeatClient == nil {
-	}
 	if heartbeatClient != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
