@@ -116,7 +116,7 @@ func ReplicaStateUpdateRoutine() {
 					state = state + decision.Command.Operation
 					slot_out++
 					// end atomic
-					log.Printf("Operation %s is performed", decision.Command.Operation)
+					log.Printf("Operation %s is performed, replica state: %s", decision.Command.Operation, state)
 				}
 			}
 		} else if update.updateType == 2 {
