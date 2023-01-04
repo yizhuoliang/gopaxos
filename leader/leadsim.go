@@ -62,7 +62,7 @@ func (s *State) P2BTransformation(message *pb.P2B) {
 		if message.BallotNumber == commander.ballotNumber && message.BallotLeader == s.leaderId && !commander.ackAcceptors[message.AcceptorId] {
 			commander.ackAcceptors[message.AcceptorId] = true
 			commander.ackCount++
-			// RECORD THIS SLOT BEING DECIDED
+			// RECORD THIS SLOT BEING DECIDED (assuming that the bsc for the slot in "proposals" won't change latter)
 			if commander.ackCount >= s.acceptorNum/2+1 {
 				s.decidedSlots[commander.bsc.SlotNumber] = true
 				// clean-up this commander
