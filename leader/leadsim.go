@@ -4,6 +4,10 @@ import (
 	pb "gopaxos/gopaxos"
 )
 
+const (
+	acceoptorNum = 3
+)
+
 type CommanderState struct {
 	ballotNumber int32
 	bsc          *pb.BSC
@@ -15,38 +19,32 @@ type ScoutState struct {
 	ballotNumber int32
 	ackCount     int32
 	ackAcceptors map[int32]bool
+	pvalues      []*pb.BSC
 }
 
-// TODO: if we don't check P1A, we can combine ballotNumber and adoptedBallotNumber
 type State struct {
-	ballotNumber        int32
+	adoptedBallotNumber int32
 	proposals           map[int32]*pb.Proposal
 	ongoingCommanders   []*CommanderState
 	ongoingScouts       []*ScoutState
-	adoptedBallotNumber int32
 	decisions           map[int32]*pb.Command
 	highestSlot         int32
-
-	// constants
-	acceptorNum int32
-	leaderId    int32
+	leaderId            int32
 }
 
 type PartialState struct {
-	ballottNumber       int32
-	newProposal         *pb.Proposal
-	newCommander        *CommanderState
-	newScout            *ScoutState
-	adoptedBallotNumber int32
-	decisions           map[int32]*pb.Command
-	highestSlot         int32
+	adoptedBallottNumber int32
+	newProposal          *pb.Proposal
+	decisions            map[int32]*pb.Command
+	highestSlot          int32
 }
 
+// TODO: add preemption and scout spawning
 func (s *State) ProposalTransformation(msg *pb.Proposal) {
 	_, ok := s.proposals[msg.SlotNumber]
 	if !ok {
 		s.proposals[msg.SlotNumber] = msg
-		s.ongoingCommanders = append(s.ongoingCommanders, &CommanderState{ballotNumber: s.ballotNumber, bsc: &pb.BSC{BallotNumber: s.ballotNumber, SlotNumber: msg.SlotNumber, Command: msg.Command}, ackCount: 0})
+		s.ongoingCommanders = append(s.ongoingCommanders, &CommanderState{ballotNumber: s.adoptedBallotNumber, bsc: &pb.BSC{BallotNumber: s.adoptedBallotNumber, SlotNumber: msg.SlotNumber, Command: msg.Command}, ackCount: 0})
 	}
 }
 
@@ -55,10 +53,31 @@ func (s *State) P1BTransformation(msg *pb.P1B) {
 	for i, scout := range s.ongoingScouts {
 		if msg.BallotNumber == scout.ballotNumber && msg.BallotLeader == s.leaderId && !scout.ackAcceptors[msg.AcceptorId] {
 			scout.ackAcceptors[msg.AcceptorId] = true
+			scout.pvalues = append(scout.pvalues, msg.Accepted...)
 			scout.ackCount++
 			// TRIGGER ADOPTION
-			if scout.ackCount >= s.acceptorNum/2+1 && scout.ballotNumber == s.ballotNumber {
-				s.adoptedBallotNumber = s.ballotNumber
+			if scout.ackCount >= acceptorNum/2+1 && scout.ballotNumber > s.adoptedBallotNumber {
+				s.adoptedBallotNumber = scout.ballotNumber
+				slotToBallot := make(map[int32]int32) // map from slot number to ballot number to satisfy pmax
+				for _, bsc := range scout.pvalues {
+					proposal, okProp := proposals[bsc.SlotNumber]
+					if okProp {
+						originalBallot, okBall := slotToBallot[proposal.SlotNumber]
+						if (okBall && originalBallot < bsc.BallotNumber) || !okBall {
+							// the previous proposal to that slot has a lower ballot number, or this is the first proposal to that slot
+							s.proposals[bsc.SlotNumber] = &pb.Proposal{SlotNumber: bsc.SlotNumber, Command: bsc.Command}
+							slotToBallot[proposal.SlotNumber] = bsc.BallotNumber
+						}
+					} else {
+						// there was originally no proposal for that slot
+						s.proposals[bsc.SlotNumber] = &pb.Proposal{SlotNumber: bsc.SlotNumber, Command: bsc.Command}
+						slotToBallot[proposal.SlotNumber] = bsc.BallotNumber
+					}
+					// Spawn commanders
+					for _, proposal := range s.proposals {
+						s.ongoingCommanders = append(s.ongoingCommanders, CommanderStateConstructor(s.adoptedBallotNumber, &pb.BSC{BallotNumber: s.adoptedBallotNumber, SlotNumber: proposal.SlotNumber, Command: proposal.Command}))
+					}
+				}
 				// clean-up this scout
 				s.ongoingScouts = append(s.ongoingScouts[:i], s.ongoingScouts[i+1:]...)
 			}
@@ -75,7 +94,7 @@ func (s *State) P2BTransformation(msg *pb.P2B) {
 			commander.ackAcceptors[msg.AcceptorId] = true
 			commander.ackCount++
 			// RECORD THIS SLOT BEING DECIDED (assuming that the bsc for the slot in "proposals" won't change latter)
-			if commander.ackCount >= s.acceptorNum/2+1 {
+			if commander.ackCount >= acceptorNum/2+1 {
 				s.decisions[commander.bsc.SlotNumber] = commander.bsc.Command
 				if commander.bsc.SlotNumber > s.highestSlot {
 					s.highestSlot = commander.bsc.SlotNumber
@@ -97,19 +116,36 @@ func DecisionInference(msg *pb.Decisions) PartialState {
 			highestSlot = decision.SlotNumber
 		}
 	}
-	return PartialState{ballottNumber: -1, adoptedBallotNumber: -1, decisions: decisions, highestSlot: highestSlot}
+	return PartialState{adoptedBallottNumber: -1, decisions: decisions, highestSlot: highestSlot}
 }
 
+// we don't make inference from P1As, a leader can run a scout at anytime without breaking correctness
 func P1AInference(msg *pb.P1A) PartialState {
-
-	return PartialState{newScout: ScoutStateConstructor()}
+	return PartialState{adoptedBallottNumber: -1, highestSlot: -1}
 }
 
 func P2AInference(msg *pb.P2A) PartialState {
-	return PartialState{ballottNumber: msg.Bsc.BallotNumber, adoptedBallotNumber: msg.Bsc.BallotNumber, newProposal: msg.Bsc, decisions: nil, highestSlot: -1}
+	newProposal := &pb.Proposal{SlotNumber: msg.Bsc.SlotNumber, Command: msg.Bsc.Command}
+	return PartialState{adoptedBallottNumber: msg.Bsc.BallotNumber, newProposal: newProposal, highestSlot: -1}
 }
 
-// TODO
-func ScoutStateConstructor() *ScoutState {
-	return nil
+func ScoutStateConstructor(ballotNumber int32) *ScoutState {
+	scout := new(ScoutState)
+	scout.ackAcceptors = make(map[int32]bool)
+	for i := int32(0); i < acceoptorNum; i++ {
+		scout.ackAcceptors[i] = false
+	}
+	scout.ballotNumber = ballotNumber
+	scout.pvalues = make([]*pb.BSC, 0)
+	return scout
+}
+
+func CommanderStateConstructor(ballotNumber int32, bsc *pb.BSC) *CommanderState {
+	commander := new(CommanderState)
+	commander.ackAcceptors = make(map[int32]bool)
+	for i := int32(0); i < acceptorNum; i++ {
+		commander.ackAcceptors[i] = false
+	}
+	commander.ballotNumber = ballotNumber
+	return commander
 }
