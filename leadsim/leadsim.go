@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	acceoptorNum = 3
+	acceptorNum = 3
 )
 
 type CommanderState struct {
@@ -60,7 +60,7 @@ func (s *State) P1BTransformation(msg *pb.P1B) {
 				s.adoptedBallotNumber = scout.ballotNumber
 				slotToBallot := make(map[int32]int32) // map from slot number to ballot number to satisfy pmax
 				for _, bsc := range scout.pvalues {
-					proposal, okProp := proposals[bsc.SlotNumber]
+					proposal, okProp := s.proposals[bsc.SlotNumber]
 					if okProp {
 						originalBallot, okBall := slotToBallot[proposal.SlotNumber]
 						if (okBall && originalBallot < bsc.BallotNumber) || !okBall {
@@ -132,7 +132,7 @@ func P2AInference(msg *pb.P2A) PartialState {
 func ScoutStateConstructor(ballotNumber int32) *ScoutState {
 	scout := new(ScoutState)
 	scout.ackAcceptors = make(map[int32]bool)
-	for i := int32(0); i < acceoptorNum; i++ {
+	for i := int32(0); i < acceptorNum; i++ {
 		scout.ackAcceptors[i] = false
 	}
 	scout.ballotNumber = ballotNumber

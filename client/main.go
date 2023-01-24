@@ -18,6 +18,19 @@ const (
 	replicaNum = 2
 )
 
+const (
+	COMMAND   = 1
+	RESPONSES = 2
+	PROPOSAL  = 3
+	DECISIONS = 4
+	BEAT      = 5
+	P1A       = 6
+	P1B       = 7
+	P2A       = 8
+	P2B       = 9
+	EMPTY     = 10
+)
+
 var (
 	clientId              int32
 	commandCount          = 0
@@ -85,7 +98,7 @@ func MessengerRoutine(serial int) {
 	for {
 		command := <-commandBuffers[serial]
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		_, err = c.Request(ctx, command)
+		_, err = c.Request(ctx, &pb.Message{Type: COMMAND, CommandId: command.CommandId, ClientId: command.ClientId, Operation: command.Operation})
 		if err != nil {
 			log.Printf("failed to request: %v\n", err)
 			cancel()
@@ -106,7 +119,7 @@ func CollectorRoutine(serial int) {
 	for {
 		<-checkSignal
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		r, err := c.Collect(ctx, &pb.Empty{Content: "checking responses\n"})
+		r, err := c.Collect(ctx, &pb.Message{Type: EMPTY, Content: "checking responses\n"})
 		if err != nil {
 			log.Printf("failed to collect: %v", err)
 			cancel()

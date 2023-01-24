@@ -11,6 +11,19 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	COMMAND   = 1
+	RESPONSES = 2
+	PROPOSAL  = 3
+	DECISIONS = 4
+	BEAT      = 5
+	P1A       = 6
+	P1B       = 7
+	P2A       = 8
+	P2B       = 9
+	EMPTY     = 10
+)
+
 var (
 	server        *grpc.Server
 	acceptorId    int32 // also considered as the serial of this acceptor
@@ -53,7 +66,7 @@ func serve(port string) {
 }
 
 // gRPC handlers
-func (s *acceptorServer) Scouting(ctx context.Context, in *pb.P1A) (*pb.P1B, error) {
+func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	<-mutexChannel
 	log.Printf("Scouting received")
 	if in.BallotNumber > ballotNumber || (in.BallotNumber == ballotNumber && in.LeaderId != ballotLeader) {
@@ -70,10 +83,10 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.P1A) (*pb.P1B, err
 	currentBallotLeader := ballotLeader
 	log.Printf("Scouting received, current states: ballot number %d, ballot leader %d", ballotNumber, ballotLeader)
 	mutexChannel <- 1
-	return &pb.P1B{AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: acceptedList}, nil
+	return &pb.Message{Type: P1B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: acceptedList}, nil
 }
 
-func (s *acceptorServer) Commanding(ctx context.Context, in *pb.P2A) (*pb.P2B, error) {
+func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	<-mutexChannel
 	ballotNumber := ballotNumber // concurrency concern, avoid ballot number update during execution
 	log.Printf("Commanding received")
@@ -85,5 +98,5 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.P2A) (*pb.P2B, e
 	currentBallotNumber := ballotNumber
 	currentBallotLeader := ballotLeader
 	mutexChannel <- 1
-	return &pb.P2B{AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader}, nil
+	return &pb.Message{Type: P2B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader}, nil
 }

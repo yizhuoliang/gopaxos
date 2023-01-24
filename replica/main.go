@@ -18,6 +18,19 @@ const (
 	WINDOW    = 5
 )
 
+const (
+	COMMAND   = 1
+	RESPONSES = 2
+	PROPOSAL  = 3
+	DECISIONS = 4
+	BEAT      = 5
+	P1A       = 6
+	P1B       = 7
+	P2A       = 8
+	P2B       = 9
+	EMPTY     = 10
+)
+
 var (
 	server       *grpc.Server
 	replicaId    int32
@@ -128,7 +141,7 @@ func ReplicaStateUpdateRoutine() {
 					request := <-requests[update.serial]
 					proposals[slot_in] = &pb.Proposal{SlotNumber: slot_in, Command: request}
 					ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-					_, err := update.c.Propose(ctx, &pb.Proposal{SlotNumber: slot_in, Command: request})
+					_, err := update.c.Propose(ctx, &pb.Message{Type: PROPOSAL, SlotNumber: slot_in, Command: request})
 					if err != nil {
 						log.Printf("failed to propose: %v", err)
 						cancel()
@@ -181,7 +194,7 @@ func CollectorRoutine(serial int) {
 	for {
 		time.Sleep(time.Second)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		r, err := c.Collect(ctx, &pb.Empty{Content: "checking responses"})
+		r, err := c.Collect(ctx, &pb.Message{Type: EMPTY, Content: "checking responses"})
 		if err != nil {
 			if logOutput {
 				log.Printf("failed to collect: %v", err)
@@ -198,16 +211,16 @@ func CollectorRoutine(serial int) {
 }
 
 // handlers
-func (s *replicaServer) Request(ctx context.Context, in *pb.Command) (*pb.Empty, error) {
+func (s *replicaServer) Request(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Printf("Request with command id %s received", in.CommandId)
 	for i := 0; i < leaderNum; i++ {
-		requests[i] <- in
+		requests[i] <- &pb.Command{ClientId: in.ClientId, CommandId: in.CommandId, Operation: in.Operation}
 		notificationChannel[i] <- 1
 	}
-	return &pb.Empty{Content: "success"}, nil
+	return &pb.Message{Type: EMPTY, Content: "success"}, nil
 }
 
-func (s *replicaServer) Collect(ctx context.Context, in *pb.Empty) (*pb.Responses, error) {
+func (s *replicaServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	var responseList []*pb.Response
 	var i int32 = 1
 	<-mutexChannel
@@ -218,5 +231,5 @@ func (s *replicaServer) Collect(ctx context.Context, in *pb.Empty) (*pb.Response
 		_, ok = decisions[i]
 	}
 	mutexChannel <- 1
-	return &pb.Responses{Valid: true, Responses: responseList}, nil
+	return &pb.Message{Type: RESPONSES, Valid: true, Responses: responseList}, nil
 }

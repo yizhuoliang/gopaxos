@@ -6,19 +6,40 @@ package gopaxos;
 
 // the service replicas provide to clients
 service ClientReplica {
-    rpc Request (Command) returns (Empty) {}
-    rpc Collect (Empty) returns (Responses) {}
+    rpc Request (Message) returns (Message) {}
+    rpc Collect (Message) returns (Message) {}
 }
 
 service ReplicaLeader {
-    rpc Propose (Proposal) returns (Empty) {}
-    rpc Collect (Empty) returns (Decisions) {}
-    rpc Heartbeat (Empty) returns (Beat) {} // THIS IS NOT FOR REPLICA BUT FOR LEADERS
+    rpc Propose (Message) returns (Message) {}
+    rpc Collect (Message) returns (Message) {}
+    rpc Heartbeat (Message) returns (Message) {} // THIS IS NOT FOR REPLICA BUT FOR LEADERS
 }
 
 service LeaderAcceptor {
-    rpc Scouting (P1a) returns (P1b) {}
-    rpc Commanding (P2a) returns (P2b) {}
+    rpc Scouting (Message) returns (Message) {}
+    rpc Commanding (Message) returns (Message) {}
+}
+
+message Message {
+    int32 type = 1;
+
+    int32 clientId = 2;
+    string commandId = 3;
+    string operation = 4;
+    Command command = 5;
+    bool valid = 6;
+    repeated Response responses = 7;
+    repeated Decision decisions = 8;
+    int32 ballotNumber = 9;
+    int32 ballotLeader = 10;
+    int32 slotNumber = 11;
+    int32 leaderId = 12;
+    int32 acceptorId = 13;
+    BSC bsc = 14;
+    repeated BSC accepted = 15;
+    bool active = 16;
+    string content = 17;
 }
 
 message Command {

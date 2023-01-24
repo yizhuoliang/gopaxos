@@ -16,6 +16,17 @@ import (
 const (
 	acceptorNum = 3
 	leaderNum   = 2
+
+	COMMAND   = 1
+	RESPONSES = 2
+	PROPOSAL  = 3
+	DECISIONS = 4
+	BEAT      = 5
+	P1A       = 6
+	P1B       = 7
+	P2A       = 8
+	P2B       = 9
+	EMPTY     = 10
 )
 
 var (
@@ -235,9 +246,9 @@ func BeatMessenger(serial int, beatCollectChannel chan bool) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
-		beat, err := (*heartbeatClient).Heartbeat(ctx, &pb.Empty{Content: "checking heartbeat"})
+		r, err := (*heartbeatClient).Heartbeat(ctx, &pb.Message{Type: EMPTY, Content: "checking heartbeat"})
 		if err == nil {
-			beatCollectChannel <- beat.GetActive()
+			beatCollectChannel <- r.GetActive()
 			return
 		}
 	}
@@ -257,13 +268,13 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	p1b, err := c.Scouting(ctx, &pb.P1A{LeaderId: leaderId, BallotNumber: scoutBallotNumber})
+	r, err := c.Scouting(ctx, &pb.Message{Type: P1A, LeaderId: leaderId, BallotNumber: scoutBallotNumber})
 	if err != nil {
 		log.Printf("scouting failed: %v", err)
 		scoutCollectChannel <- &pb.P1B{AcceptorId: -1}
 		return
 	}
-	scoutCollectChannel <- p1b
+	scoutCollectChannel <- &pb.P1B{AcceptorId: r.AcceptorId, BallotNumber: r.BallotNumber, BallotLeader: r.BallotLeader, Accepted: r.Accepted}
 }
 
 func CommanderRoutine(bsc *pb.BSC) {
@@ -308,25 +319,25 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	p2b, err := c.Commanding(ctx, &pb.P2A{LeaderId: leaderId, Bsc: bsc})
+	r, err := c.Commanding(ctx, &pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc})
 	if err != nil {
 		commanderCollectChannel <- &pb.P2B{AcceptorId: -1}
 		return
 	}
-	commanderCollectChannel <- p2b
+	commanderCollectChannel <- &pb.P2B{AcceptorId: r.AcceptorId, BallotNumber: r.BallotNumber, BallotLeader: r.BallotLeader}
 }
 
 // gRPC HANDLERS
-func (s *leaderServer) Propose(ctx context.Context, in *pb.Proposal) (*pb.Empty, error) {
-	leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 1, newProposal: in} // Weird? Yes! Things can only be down after chekcing proposals
+func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+	leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 1, newProposal: &pb.Proposal{SlotNumber: in.SlotNumber, Command: in.Command}} // Weird? Yes! Things can only be down after chekcing proposals
 	log.Printf("Received proposal with commandId %s and slot number %d", in.Command.CommandId, in.SlotNumber)
-	return &pb.Empty{Content: "success"}, nil
+	return &pb.Message{Type: EMPTY, Content: "success"}, nil
 }
 
-func (s *leaderServer) Collect(ctx context.Context, in *pb.Empty) (*pb.Decisions, error) {
-	return &pb.Decisions{Valid: true, Decisions: decisions}, nil
+func (s *leaderServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+	return &pb.Message{Type: DECISIONS, Valid: true, Decisions: decisions}, nil
 }
 
-func (s *leaderServer) Heartbeat(ctx context.Context, in *pb.Empty) (*pb.Beat, error) {
-	return &pb.Beat{Active: active}, nil
+func (s *leaderServer) Heartbeat(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+	return &pb.Message{Type: BEAT, Active: active}, nil
 }

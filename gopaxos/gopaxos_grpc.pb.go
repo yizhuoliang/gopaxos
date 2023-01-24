@@ -22,8 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ClientReplicaClient interface {
-	Request(ctx context.Context, in *Command, opts ...grpc.CallOption) (*Empty, error)
-	Collect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Responses, error)
+	Request(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error)
+	Collect(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error)
 }
 
 type clientReplicaClient struct {
@@ -34,8 +34,8 @@ func NewClientReplicaClient(cc grpc.ClientConnInterface) ClientReplicaClient {
 	return &clientReplicaClient{cc}
 }
 
-func (c *clientReplicaClient) Request(ctx context.Context, in *Command, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
+func (c *clientReplicaClient) Request(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error) {
+	out := new(Message)
 	err := c.cc.Invoke(ctx, "/gopaxos.ClientReplica/Request", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -43,8 +43,8 @@ func (c *clientReplicaClient) Request(ctx context.Context, in *Command, opts ...
 	return out, nil
 }
 
-func (c *clientReplicaClient) Collect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Responses, error) {
-	out := new(Responses)
+func (c *clientReplicaClient) Collect(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error) {
+	out := new(Message)
 	err := c.cc.Invoke(ctx, "/gopaxos.ClientReplica/Collect", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -56,8 +56,8 @@ func (c *clientReplicaClient) Collect(ctx context.Context, in *Empty, opts ...gr
 // All implementations must embed UnimplementedClientReplicaServer
 // for forward compatibility
 type ClientReplicaServer interface {
-	Request(context.Context, *Command) (*Empty, error)
-	Collect(context.Context, *Empty) (*Responses, error)
+	Request(context.Context, *Message) (*Message, error)
+	Collect(context.Context, *Message) (*Message, error)
 	mustEmbedUnimplementedClientReplicaServer()
 }
 
@@ -65,10 +65,10 @@ type ClientReplicaServer interface {
 type UnimplementedClientReplicaServer struct {
 }
 
-func (UnimplementedClientReplicaServer) Request(context.Context, *Command) (*Empty, error) {
+func (UnimplementedClientReplicaServer) Request(context.Context, *Message) (*Message, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Request not implemented")
 }
-func (UnimplementedClientReplicaServer) Collect(context.Context, *Empty) (*Responses, error) {
+func (UnimplementedClientReplicaServer) Collect(context.Context, *Message) (*Message, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Collect not implemented")
 }
 func (UnimplementedClientReplicaServer) mustEmbedUnimplementedClientReplicaServer() {}
@@ -85,7 +85,7 @@ func RegisterClientReplicaServer(s grpc.ServiceRegistrar, srv ClientReplicaServe
 }
 
 func _ClientReplica_Request_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Command)
+	in := new(Message)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -97,13 +97,13 @@ func _ClientReplica_Request_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: "/gopaxos.ClientReplica/Request",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ClientReplicaServer).Request(ctx, req.(*Command))
+		return srv.(ClientReplicaServer).Request(ctx, req.(*Message))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ClientReplica_Collect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
+	in := new(Message)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func _ClientReplica_Collect_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: "/gopaxos.ClientReplica/Collect",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ClientReplicaServer).Collect(ctx, req.(*Empty))
+		return srv.(ClientReplicaServer).Collect(ctx, req.(*Message))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -144,9 +144,9 @@ var ClientReplica_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ReplicaLeaderClient interface {
-	Propose(ctx context.Context, in *Proposal, opts ...grpc.CallOption) (*Empty, error)
-	Collect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Decisions, error)
-	Heartbeat(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Beat, error)
+	Propose(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error)
+	Collect(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error)
+	Heartbeat(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error)
 }
 
 type replicaLeaderClient struct {
@@ -157,8 +157,8 @@ func NewReplicaLeaderClient(cc grpc.ClientConnInterface) ReplicaLeaderClient {
 	return &replicaLeaderClient{cc}
 }
 
-func (c *replicaLeaderClient) Propose(ctx context.Context, in *Proposal, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
+func (c *replicaLeaderClient) Propose(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error) {
+	out := new(Message)
 	err := c.cc.Invoke(ctx, "/gopaxos.ReplicaLeader/Propose", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -166,8 +166,8 @@ func (c *replicaLeaderClient) Propose(ctx context.Context, in *Proposal, opts ..
 	return out, nil
 }
 
-func (c *replicaLeaderClient) Collect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Decisions, error) {
-	out := new(Decisions)
+func (c *replicaLeaderClient) Collect(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error) {
+	out := new(Message)
 	err := c.cc.Invoke(ctx, "/gopaxos.ReplicaLeader/Collect", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -175,8 +175,8 @@ func (c *replicaLeaderClient) Collect(ctx context.Context, in *Empty, opts ...gr
 	return out, nil
 }
 
-func (c *replicaLeaderClient) Heartbeat(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Beat, error) {
-	out := new(Beat)
+func (c *replicaLeaderClient) Heartbeat(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error) {
+	out := new(Message)
 	err := c.cc.Invoke(ctx, "/gopaxos.ReplicaLeader/Heartbeat", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -188,9 +188,9 @@ func (c *replicaLeaderClient) Heartbeat(ctx context.Context, in *Empty, opts ...
 // All implementations must embed UnimplementedReplicaLeaderServer
 // for forward compatibility
 type ReplicaLeaderServer interface {
-	Propose(context.Context, *Proposal) (*Empty, error)
-	Collect(context.Context, *Empty) (*Decisions, error)
-	Heartbeat(context.Context, *Empty) (*Beat, error)
+	Propose(context.Context, *Message) (*Message, error)
+	Collect(context.Context, *Message) (*Message, error)
+	Heartbeat(context.Context, *Message) (*Message, error)
 	mustEmbedUnimplementedReplicaLeaderServer()
 }
 
@@ -198,13 +198,13 @@ type ReplicaLeaderServer interface {
 type UnimplementedReplicaLeaderServer struct {
 }
 
-func (UnimplementedReplicaLeaderServer) Propose(context.Context, *Proposal) (*Empty, error) {
+func (UnimplementedReplicaLeaderServer) Propose(context.Context, *Message) (*Message, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Propose not implemented")
 }
-func (UnimplementedReplicaLeaderServer) Collect(context.Context, *Empty) (*Decisions, error) {
+func (UnimplementedReplicaLeaderServer) Collect(context.Context, *Message) (*Message, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Collect not implemented")
 }
-func (UnimplementedReplicaLeaderServer) Heartbeat(context.Context, *Empty) (*Beat, error) {
+func (UnimplementedReplicaLeaderServer) Heartbeat(context.Context, *Message) (*Message, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Heartbeat not implemented")
 }
 func (UnimplementedReplicaLeaderServer) mustEmbedUnimplementedReplicaLeaderServer() {}
@@ -221,7 +221,7 @@ func RegisterReplicaLeaderServer(s grpc.ServiceRegistrar, srv ReplicaLeaderServe
 }
 
 func _ReplicaLeader_Propose_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Proposal)
+	in := new(Message)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -233,13 +233,13 @@ func _ReplicaLeader_Propose_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: "/gopaxos.ReplicaLeader/Propose",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReplicaLeaderServer).Propose(ctx, req.(*Proposal))
+		return srv.(ReplicaLeaderServer).Propose(ctx, req.(*Message))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ReplicaLeader_Collect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
+	in := new(Message)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -251,13 +251,13 @@ func _ReplicaLeader_Collect_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: "/gopaxos.ReplicaLeader/Collect",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReplicaLeaderServer).Collect(ctx, req.(*Empty))
+		return srv.(ReplicaLeaderServer).Collect(ctx, req.(*Message))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ReplicaLeader_Heartbeat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
+	in := new(Message)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -269,7 +269,7 @@ func _ReplicaLeader_Heartbeat_Handler(srv interface{}, ctx context.Context, dec 
 		FullMethod: "/gopaxos.ReplicaLeader/Heartbeat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReplicaLeaderServer).Heartbeat(ctx, req.(*Empty))
+		return srv.(ReplicaLeaderServer).Heartbeat(ctx, req.(*Message))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -302,8 +302,8 @@ var ReplicaLeader_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LeaderAcceptorClient interface {
-	Scouting(ctx context.Context, in *P1A, opts ...grpc.CallOption) (*P1B, error)
-	Commanding(ctx context.Context, in *P2A, opts ...grpc.CallOption) (*P2B, error)
+	Scouting(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error)
+	Commanding(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error)
 }
 
 type leaderAcceptorClient struct {
@@ -314,8 +314,8 @@ func NewLeaderAcceptorClient(cc grpc.ClientConnInterface) LeaderAcceptorClient {
 	return &leaderAcceptorClient{cc}
 }
 
-func (c *leaderAcceptorClient) Scouting(ctx context.Context, in *P1A, opts ...grpc.CallOption) (*P1B, error) {
-	out := new(P1B)
+func (c *leaderAcceptorClient) Scouting(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error) {
+	out := new(Message)
 	err := c.cc.Invoke(ctx, "/gopaxos.LeaderAcceptor/Scouting", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -323,8 +323,8 @@ func (c *leaderAcceptorClient) Scouting(ctx context.Context, in *P1A, opts ...gr
 	return out, nil
 }
 
-func (c *leaderAcceptorClient) Commanding(ctx context.Context, in *P2A, opts ...grpc.CallOption) (*P2B, error) {
-	out := new(P2B)
+func (c *leaderAcceptorClient) Commanding(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error) {
+	out := new(Message)
 	err := c.cc.Invoke(ctx, "/gopaxos.LeaderAcceptor/Commanding", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -336,8 +336,8 @@ func (c *leaderAcceptorClient) Commanding(ctx context.Context, in *P2A, opts ...
 // All implementations must embed UnimplementedLeaderAcceptorServer
 // for forward compatibility
 type LeaderAcceptorServer interface {
-	Scouting(context.Context, *P1A) (*P1B, error)
-	Commanding(context.Context, *P2A) (*P2B, error)
+	Scouting(context.Context, *Message) (*Message, error)
+	Commanding(context.Context, *Message) (*Message, error)
 	mustEmbedUnimplementedLeaderAcceptorServer()
 }
 
@@ -345,10 +345,10 @@ type LeaderAcceptorServer interface {
 type UnimplementedLeaderAcceptorServer struct {
 }
 
-func (UnimplementedLeaderAcceptorServer) Scouting(context.Context, *P1A) (*P1B, error) {
+func (UnimplementedLeaderAcceptorServer) Scouting(context.Context, *Message) (*Message, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Scouting not implemented")
 }
-func (UnimplementedLeaderAcceptorServer) Commanding(context.Context, *P2A) (*P2B, error) {
+func (UnimplementedLeaderAcceptorServer) Commanding(context.Context, *Message) (*Message, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Commanding not implemented")
 }
 func (UnimplementedLeaderAcceptorServer) mustEmbedUnimplementedLeaderAcceptorServer() {}
@@ -365,7 +365,7 @@ func RegisterLeaderAcceptorServer(s grpc.ServiceRegistrar, srv LeaderAcceptorSer
 }
 
 func _LeaderAcceptor_Scouting_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(P1A)
+	in := new(Message)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -377,13 +377,13 @@ func _LeaderAcceptor_Scouting_Handler(srv interface{}, ctx context.Context, dec 
 		FullMethod: "/gopaxos.LeaderAcceptor/Scouting",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LeaderAcceptorServer).Scouting(ctx, req.(*P1A))
+		return srv.(LeaderAcceptorServer).Scouting(ctx, req.(*Message))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _LeaderAcceptor_Commanding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(P2A)
+	in := new(Message)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -395,7 +395,7 @@ func _LeaderAcceptor_Commanding_Handler(srv interface{}, ctx context.Context, de
 		FullMethod: "/gopaxos.LeaderAcceptor/Commanding",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LeaderAcceptorServer).Commanding(ctx, req.(*P2A))
+		return srv.(LeaderAcceptorServer).Commanding(ctx, req.(*Message))
 	}
 	return interceptor(ctx, in, info, handler)
 }
