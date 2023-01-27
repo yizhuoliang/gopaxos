@@ -39,11 +39,12 @@ type PartialState struct {
 	highestSlot          int32
 }
 
-// TODO: add preemption and scout spawning
-func (s *State) ProposalTransformation(msg *pb.Proposal) {
+func (s *State) ProposalTransformation(msg *pb.Message) {
 	_, ok := s.proposals[msg.SlotNumber]
 	if !ok {
-		s.proposals[msg.SlotNumber] = msg
+		p := make(map[int32]*pb.Proposal)
+		copy(p, s.proposals) // write a func
+		s.proposals[msg.SlotNumber] = &pb.Proposal{SlotNumber: msg.SlotNumber, Command: msg.Command}
 		s.ongoingCommanders = append(s.ongoingCommanders, &CommanderState{ballotNumber: s.adoptedBallotNumber, bsc: &pb.BSC{BallotNumber: s.adoptedBallotNumber, SlotNumber: msg.SlotNumber, Command: msg.Command}, ackCount: 0})
 	}
 }
