@@ -150,3 +150,7 @@ func CommanderStateConstructor(ballotNumber int32, bsc *pb.BSC) *CommanderState 
 	commander.ballotNumber = ballotNumber
 	return commander
 }
+
+func mapCopy[T any](src *map[int32]*T, dst *map[int32]*T) {
+
+}
