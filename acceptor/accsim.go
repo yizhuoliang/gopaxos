@@ -16,20 +16,20 @@ type PartialState struct {
 	accepted     map[int32][]*pb.BSC
 }
 
-func (s *State) P2ATransformation(msg *pb.P2A) {
+func (s *State) P2ATransformation(msg *pb.Message) {
 	if s.ballotNumber == msg.Bsc.BallotNumber && s.ballotLeader == msg.LeaderId {
-		s.accepted[msg.Bsc.BallotNumber] = append(accepted[msg.Bsc.BallotNumber], msg.Bsc)
+		s.accepted[msg.Bsc.BallotNumber] = append(s.accepted[msg.Bsc.BallotNumber], msg.Bsc)
 	}
 }
 
-func (s *State) P1ATransformation(msg *pb.P1A) {
+func (s *State) P1ATransformation(msg *pb.Message) {
 	if msg.BallotNumber > s.ballotNumber || (msg.BallotNumber == s.ballotNumber && msg.LeaderId != s.ballotNumber) {
 		s.ballotNumber = msg.BallotNumber
 		s.ballotLeader = msg.LeaderId
 	}
 }
 
-func P1BInference(msg *pb.P1B) PartialState {
+func P1BInference(msg *pb.Message) PartialState {
 	accepted = make(map[int32][]*pb.BSC)
 	for _, bsc := range msg.Accepted {
 		_, ok := accepted[bsc.BallotNumber]
@@ -41,6 +41,6 @@ func P1BInference(msg *pb.P1B) PartialState {
 	return PartialState{ballotNumber: msg.BallotNumber, ballotLeader: msg.BallotLeader, accepted: accepted}
 }
 
-func P2BInference(msg *pb.P2B) PartialState {
+func P2BInference(msg *pb.Message) PartialState {
 	return PartialState{ballotNumber: msg.BallotNumber, ballotLeader: msg.BallotLeader, accepted: nil}
 }
