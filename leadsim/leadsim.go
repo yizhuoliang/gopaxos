@@ -29,7 +29,9 @@ type State struct {
 	ongoingScouts       []*ScoutState
 	decisions           map[int32]*pb.Command
 	highestSlot         int32
-	leaderId            int32
+
+	// constants
+	leaderId int32
 }
 
 type PartialState struct {
@@ -43,55 +45,94 @@ func (s *State) ProposalTransformation(msg *pb.Message) {
 	_, ok := s.proposals[msg.SlotNumber]
 	if !ok {
 		p := make(map[int32]*pb.Proposal)
-		copy(p, s.proposals) // write a func
+		mapCopy(p, s.proposals)
 		s.proposals[msg.SlotNumber] = &pb.Proposal{SlotNumber: msg.SlotNumber, Command: msg.Command}
 		s.ongoingCommanders = append(s.ongoingCommanders, &CommanderState{ballotNumber: s.adoptedBallotNumber, bsc: &pb.BSC{BallotNumber: s.adoptedBallotNumber, SlotNumber: msg.SlotNumber, Command: msg.Command}, ackCount: 0})
 	}
 }
 
-func (s *State) P1BTransformation(msg *pb.P1B) {
+/*	KEY IDEAS:
+
+	We DO NOT launch a scout actively here, since we allow the leader to launch a scout at any time,
+	which doesn't affect correctness. Rather, we add a scout state when receive a P1B acknowledgement
+	to this leader's higher ballot.
+
+	On the other hand, we know that leaders can only launch commanders after receiving proposals and
+	after adoption, so we add commander states at those points.
+*/
+
+func (s *State) P1BTransformation(msg *pb.Message) {
+	// DROP STALE P1B or REFUSALS
+	if msg.BallotNumber <= s.adoptedBallotNumber || msg.BallotLeader != s.leaderId {
+		return
+	}
+	registered := false
+	copied := false
 	// of course there should be only 1 ongoing scout at a time, but I don't restrict it here
 	for i, scout := range s.ongoingScouts {
+		// Case: stale scout
+		if msg.BallotNumber > scout.ballotNumber {
+			scouts := make([]*ScoutState, len(s.ongoingScouts))
+			copy(scouts, s.ongoingScouts)
+			s.ongoingScouts = scouts
+			copied = true
+			s.ongoingScouts = append(s.ongoingScouts[:i], s.ongoingScouts[i+1:]...)
+			continue
+		}
+
+		// Case: scout can be updated
 		if msg.BallotNumber == scout.ballotNumber && msg.BallotLeader == s.leaderId && !scout.ackAcceptors[msg.AcceptorId] {
+			registered = true
+			// UPDATE THIS SCOUT STATE
+			if !copied {
+				scouts := make([]*ScoutState, len(s.ongoingScouts))
+				copy(scouts, s.ongoingScouts)
+				s.ongoingScouts = scouts
+				copied = true
+			}
 			scout.ackAcceptors[msg.AcceptorId] = true
 			scout.pvalues = append(scout.pvalues, msg.Accepted...)
 			scout.ackCount++
 			// TRIGGER ADOPTION
 			if scout.ackCount >= acceptorNum/2+1 && scout.ballotNumber > s.adoptedBallotNumber {
-				s.adoptedBallotNumber = scout.ballotNumber
-				slotToBallot := make(map[int32]int32) // map from slot number to ballot number to satisfy pmax
-				for _, bsc := range scout.pvalues {
-					proposal, okProp := s.proposals[bsc.SlotNumber]
-					if okProp {
-						originalBallot, okBall := slotToBallot[proposal.SlotNumber]
-						if (okBall && originalBallot < bsc.BallotNumber) || !okBall {
-							// the previous proposal to that slot has a lower ballot number, or this is the first proposal to that slot
-							s.proposals[bsc.SlotNumber] = &pb.Proposal{SlotNumber: bsc.SlotNumber, Command: bsc.Command}
-							slotToBallot[proposal.SlotNumber] = bsc.BallotNumber
-						}
-					} else {
-						// there was originally no proposal for that slot
-						s.proposals[bsc.SlotNumber] = &pb.Proposal{SlotNumber: bsc.SlotNumber, Command: bsc.Command}
-						slotToBallot[proposal.SlotNumber] = bsc.BallotNumber
-					}
-					// Spawn commanders
-					for _, proposal := range s.proposals {
-						s.ongoingCommanders = append(s.ongoingCommanders, CommanderStateConstructor(s.adoptedBallotNumber, &pb.BSC{BallotNumber: s.adoptedBallotNumber, SlotNumber: proposal.SlotNumber, Command: proposal.Command}))
-					}
-				}
+				adoption(s, scout)
 				// clean-up this scout
 				s.ongoingScouts = append(s.ongoingScouts[:i], s.ongoingScouts[i+1:]...)
 			}
-			break
+		}
+	}
+	// Case: the scout isn't registered
+	if !registered {
+		if !copied {
+			scouts := make([]*ScoutState, len(s.ongoingScouts))
+			copy(scouts, s.ongoingScouts)
+			s.ongoingScouts = scouts
+		}
+		originalLen := len(s.ongoingScouts)
+		newScout := ScoutStateConstructor(msg.BallotNumber)
+		newScout.ackAcceptors[msg.AcceptorId] = true
+		newScout.ackCount = 1
+		s.ongoingScouts = append(s.ongoingScouts, newScout)
+		if newScout.ackCount >= acceptorNum/2+1 && newScout.ballotNumber > s.adoptedBallotNumber {
+			adoption(s, newScout)
+			// clean-up this scout
+			s.ongoingScouts = append(s.ongoingScouts[:originalLen])
 		}
 	}
 }
 
-func (s *State) P2BTransformation(msg *pb.P2B) {
+func (s *State) P2BTransformation(msg *pb.Message) {
+	copied := false
 	for i, commander := range s.ongoingCommanders {
-		// since we don't know which commander is this P2B responding, just find a commander that can take this P2B
-		// yes there is a concern, I put it in conceern1.png
+		// since we don't know which commander is this P2B responding, just find all commander that can take this P2B
 		if msg.BallotNumber == commander.ballotNumber && msg.BallotLeader == s.leaderId && !commander.ackAcceptors[msg.AcceptorId] {
+			if !copied {
+				// copy on write
+				commanders := make([]*CommanderState, len(s.ongoingCommanders))
+				copy(commanders, s.ongoingCommanders)
+				s.ongoingCommanders = commanders
+				copied = true
+			}
 			commander.ackAcceptors[msg.AcceptorId] = true
 			commander.ackCount++
 			// RECORD THIS SLOT BEING DECIDED (assuming that the bsc for the slot in "proposals" won't change latter)
@@ -151,6 +192,35 @@ func CommanderStateConstructor(ballotNumber int32, bsc *pb.BSC) *CommanderState 
 	return commander
 }
 
-func mapCopy[T any](src *map[int32]*T, dst *map[int32]*T) {
+func mapCopy[T any](dst map[int32]*T, src map[int32]*T) {
+	for key, val := range src {
+		dst[key] = val
+	}
+}
 
+func adoption(s *State, scout *ScoutState) {
+	s.adoptedBallotNumber = scout.ballotNumber
+	slotToBallot := make(map[int32]int32) // map from slot number to ballot number to satisfy pmax
+	for _, bsc := range scout.pvalues {
+		proposal, okProp := s.proposals[bsc.SlotNumber]
+		if okProp {
+			originalBallot, okBall := slotToBallot[proposal.SlotNumber]
+			if (okBall && originalBallot < bsc.BallotNumber) || !okBall {
+				// the previous proposal to that slot has a lower ballot number, or this is the first proposal to that slot
+				s.proposals[bsc.SlotNumber] = &pb.Proposal{SlotNumber: bsc.SlotNumber, Command: bsc.Command}
+				slotToBallot[proposal.SlotNumber] = bsc.BallotNumber
+			}
+		} else {
+			// there was originally no proposal for that slot
+			s.proposals[bsc.SlotNumber] = &pb.Proposal{SlotNumber: bsc.SlotNumber, Command: bsc.Command}
+			slotToBallot[proposal.SlotNumber] = bsc.BallotNumber
+		}
+		// Spawn commanders
+		for _, proposal := range s.proposals {
+			// copy on write
+			commanders := make([]*CommanderState, len(s.ongoingCommanders))
+			copy(commanders, s.ongoingCommanders)
+			s.ongoingCommanders = append(commanders, CommanderStateConstructor(s.adoptedBallotNumber, &pb.BSC{BallotNumber: s.adoptedBallotNumber, SlotNumber: proposal.SlotNumber, Command: proposal.Command}))
+		}
+	}
 }
