@@ -16,17 +16,36 @@ type PartialState struct {
 	accepted     map[int32][]*pb.BSC
 }
 
-func (s *State) P2ATransformation(msg *pb.Message) {
+func Apply(s State, msg *pb.Message) (State, *pb.Message) {
+	reply := &pb.Message{}
+	switch msg.Type {
+	case P2A:
+		reply = s.P2ATransformation(msg)
+	case P1A:
+		reply = s.P1ATransformation(msg)
+	}
+	return s, reply
+}
+
+func (s *State) P2ATransformation(msg *pb.Message) *pb.Message {
 	if s.ballotNumber == msg.Bsc.BallotNumber && s.ballotLeader == msg.LeaderId {
 		s.accepted[msg.Bsc.BallotNumber] = append(s.accepted[msg.Bsc.BallotNumber], msg.Bsc)
 	}
+	return &pb.Message{Type: P2B, AcceptorId: -1, BallotNumber: s.ballotNumber, BallotLeader: s.ballotLeader}
 }
 
-func (s *State) P1ATransformation(msg *pb.Message) {
+func (s *State) P1ATransformation(msg *pb.Message) *pb.Message {
 	if msg.BallotNumber > s.ballotNumber || (msg.BallotNumber == s.ballotNumber && msg.LeaderId != s.ballotNumber) {
 		s.ballotNumber = msg.BallotNumber
 		s.ballotLeader = msg.LeaderId
 	}
+	var acceptedList []*pb.BSC
+	for i := 1; i < int(ballotNumber); i++ {
+		if bscs, ok := accepted[int32(i)]; ok {
+			acceptedList = append(acceptedList, bscs...)
+		}
+	}
+	return &pb.Message{Type: P1B, AcceptorId: -1, BallotNumber: s.ballotNumber, BallotLeader: s.ballotLeader, Accepted: acceptedList}
 }
 
 func P1BInference(msg *pb.Message) PartialState {
