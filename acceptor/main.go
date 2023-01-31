@@ -69,7 +69,7 @@ func serve(port string) {
 func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	<-mutexChannel
 	log.Printf("Scouting received")
-	if in.Bsc.BallotNumber > ballotNumber || (in.Bsc.BallotNumber == ballotNumber && in.LeaderId != ballotLeader) {
+	if in.BallotNumber > ballotNumber || (in.BallotNumber == ballotNumber && in.LeaderId != ballotLeader) {
 		ballotNumber = in.BallotNumber
 		ballotLeader = in.LeaderId
 	}
