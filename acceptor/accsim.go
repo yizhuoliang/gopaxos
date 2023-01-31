@@ -77,13 +77,13 @@ func P2BInference(msg *pb.Message) PartialState {
 	return PartialState{ballotNumber: msg.BallotNumber, ballotLeader: msg.BallotLeader, accepted: nil}
 }
 
-func PartialStateEnabled(ps PartialState, from State, msg *pb.Message) (bool, State) {
+func PartialStateEnabled(ps PartialState, from State, msg *pb.Message) (bool, bool, State) {
 	if msg.Bsc.BallotNumber > ps.ballotNumber {
-		return false, State{}
+		return false, false, State{}
 	}
 	s, _ := Apply(from, msg)
 	// TODO
-	return true, s
+	return true, true, s
 }
 
 func PartialStateMatched(ps PartialState, s State) bool {
