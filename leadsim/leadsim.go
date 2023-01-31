@@ -52,7 +52,7 @@ type PartialState struct {
 	decisions            []*pb.Decision
 }
 
-func Apply(s State, msg *pb.Message) (State, pb.Message) {
+func Apply(s State, msg pb.Message) (State, pb.Message) {
 	reply := pb.Message{}
 	switch msg.Type {
 	case PROPOSAL:
@@ -65,7 +65,7 @@ func Apply(s State, msg *pb.Message) (State, pb.Message) {
 	return s, reply
 }
 
-func (s *State) ProposalTransformation(msg *pb.Message) {
+func (s *State) ProposalTransformation(msg pb.Message) {
 	_, ok := s.proposals[msg.SlotNumber]
 	if !ok {
 		p := make(map[int32]*pb.Proposal)
@@ -85,7 +85,7 @@ func (s *State) ProposalTransformation(msg *pb.Message) {
 	after adoption, so we add commander states at those points.
 */
 
-func (s *State) P1BTransformation(msg *pb.Message) {
+func (s *State) P1BTransformation(msg pb.Message) {
 	// DROP STALE P1B or REFUSALS
 	if msg.BallotNumber <= s.adoptedBallotNumber || msg.BallotLeader != s.leaderId {
 		return
@@ -145,7 +145,7 @@ func (s *State) P1BTransformation(msg *pb.Message) {
 	}
 }
 
-func (s *State) P2BTransformation(msg *pb.Message) {
+func (s *State) P2BTransformation(msg pb.Message) {
 	copied := false
 	for i, commander := range s.ongoingCommanders {
 		// since we don't know which commander is this P2B responding, just find all commander that can take this P2B
@@ -173,7 +173,11 @@ func (s *State) P2BTransformation(msg *pb.Message) {
 	}
 }
 
-func DecisionInference(msg *pb.Message) PartialState {
+// func (s *State) Equal(s1 *State) bool {
+// 	return s.adoptedBallotNumber == s1.adoptedBallotNumber && reflect.DeepEqual(s.proposals, s1.proposals) &&
+// }
+
+func DecisionInference(msg pb.Message) PartialState {
 	return PartialState{adoptedBallottNumber: -1, decisions: msg.Decisions}
 }
 
