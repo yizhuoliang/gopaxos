@@ -6,6 +6,18 @@ import (
 
 const (
 	acceptorNum = 3
+	leaderNum   = 2
+
+	COMMAND   = 1
+	RESPONSES = 2
+	PROPOSAL  = 3
+	DECISIONS = 4
+	BEAT      = 5
+	P1A       = 6
+	P1B       = 7
+	P2A       = 8
+	P2B       = 9
+	EMPTY     = 10
 )
 
 type CommanderState struct {
@@ -39,6 +51,19 @@ type PartialState struct {
 	newProposal          *pb.Proposal
 	decisions            map[int32]*pb.Command
 	highestSlot          int32
+}
+
+func Apply(s State, msg *pb.Message) (State, pb.Message) {
+	reply := pb.Message{}
+	switch msg.Type {
+	case PROPOSAL:
+		s.ProposalTransformation(msg)
+	case P1B:
+		s.P1BTransformation(msg)
+	case P2B:
+		s.P2BTransformation(msg)
+	}
+	return s, reply
 }
 
 func (s *State) ProposalTransformation(msg *pb.Message) {
@@ -171,6 +196,30 @@ func P2AInference(msg *pb.P2A) PartialState {
 	return PartialState{adoptedBallottNumber: msg.Bsc.BallotNumber, newProposal: newProposal, highestSlot: -1}
 }
 
+func PartialStateMatched(end_s *interface{}, s State) (State, bool) {
+	ps := (*end_s).(PartialState)
+	
+	if ps.adoptedBallottNumber != -1 && ps.adoptedBallottNumber != s.adoptedBallotNumber {
+		return s, false
+	}
+
+	if ps.newProposal != nil {
+		prop, ok := s.proposals[ps.newProposal.SlotNumber]
+		if !ok || !commandMatched(prop.Command, ps.newProposal.Command) {
+			return s, false
+		}
+	}
+
+	if ps.highestSlot != 
+}
+
+//  adoptedBallottNumber int32
+// 	newProposal          *pb.Proposal
+// 	decisions            map[int32]*pb.Command
+// 	highestSlot          int32
+
+// --------- HELPER FUNCTIONS BELOW -------------
+
 func ScoutStateConstructor(ballotNumber int32) *ScoutState {
 	scout := new(ScoutState)
 	scout.ackAcceptors = make(map[int32]bool)
@@ -223,4 +272,8 @@ func adoption(s *State, scout *ScoutState) {
 			s.ongoingCommanders = append(commanders, CommanderStateConstructor(s.adoptedBallotNumber, &pb.BSC{BallotNumber: s.adoptedBallotNumber, SlotNumber: proposal.SlotNumber, Command: proposal.Command}))
 		}
 	}
+}
+
+func commandMatched(c1 *pb.Command, c2 *pb.Command) bool {
+	return c1.ClientId == c2.ClientId && c1.CommandId == c1.CommandId
 }
