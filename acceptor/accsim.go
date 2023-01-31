@@ -17,8 +17,8 @@ type PartialState struct {
 	accepted     map[int32][]*pb.BSC
 }
 
-func Apply(s State, msg *pb.Message) (State, *pb.Message) {
-	reply := &pb.Message{}
+func Apply(s State, msg pb.Message) (State, pb.Message) {
+	reply := pb.Message{}
 	switch msg.Type {
 	case P2A:
 		reply = s.P2ATransformation(msg)
@@ -28,15 +28,18 @@ func Apply(s State, msg *pb.Message) (State, *pb.Message) {
 	return s, reply
 }
 
-func (s *State) P2ATransformation(msg *pb.Message) *pb.Message {
+func (s *State) P2ATransformation(msg pb.Message) pb.Message {
 	if msg.Bsc.BallotNumber >= s.ballotNumber && s.ballotLeader == msg.LeaderId {
 		s.ballotNumber = msg.Bsc.BallotNumber
+		m := make(map[int32][]*pb.BSC)
+		mapCopy(m, s.accepted)
+		s.accepted = m
 		s.accepted[msg.Bsc.BallotNumber] = append(s.accepted[msg.Bsc.BallotNumber], msg.Bsc)
 	}
-	return &pb.Message{Type: P2B, AcceptorId: -1, BallotNumber: s.ballotNumber, BallotLeader: s.ballotLeader}
+	return pb.Message{Type: P2B, AcceptorId: -1, BallotNumber: s.ballotNumber, BallotLeader: s.ballotLeader}
 }
 
-func (s *State) P1ATransformation(msg *pb.Message) *pb.Message {
+func (s *State) P1ATransformation(msg pb.Message) pb.Message {
 	if msg.BallotNumber > s.ballotNumber || (msg.BallotNumber == s.ballotNumber && msg.LeaderId != s.ballotNumber) {
 		s.ballotNumber = msg.BallotNumber
 		s.ballotLeader = msg.LeaderId
@@ -47,21 +50,21 @@ func (s *State) P1ATransformation(msg *pb.Message) *pb.Message {
 			acceptedList = append(acceptedList, bscs...)
 		}
 	}
-	return &pb.Message{Type: P1B, AcceptorId: -1, BallotNumber: s.ballotNumber, BallotLeader: s.ballotLeader, Accepted: acceptedList}
+	return pb.Message{Type: P1B, AcceptorId: -1, BallotNumber: s.ballotNumber, BallotLeader: s.ballotLeader, Accepted: acceptedList}
 }
 
-func Inference(msg *pb.Message) (interface{}, *pb.Message) {
+func Inference(msg pb.Message) (interface{}, pb.Message) {
 	switch msg.Type {
 	case P1B:
-		return P1BInference(msg), &pb.Message{}
+		return P1BInference(msg), pb.Message{}
 	case P2B:
-		return P2BInference(msg), &pb.Message{}
+		return P2BInference(msg), pb.Message{}
 	default:
-		return nil, &pb.Message{}
+		return nil, pb.Message{}
 	}
 }
 
-func P1BInference(msg *pb.Message) PartialState {
+func P1BInference(msg pb.Message) PartialState {
 	accepted = make(map[int32][]*pb.BSC)
 	for _, bsc := range msg.Accepted {
 		_, ok := accepted[bsc.BallotNumber]
@@ -73,16 +76,32 @@ func P1BInference(msg *pb.Message) PartialState {
 	return PartialState{ballotNumber: msg.BallotNumber, ballotLeader: msg.BallotLeader, accepted: accepted}
 }
 
-func P2BInference(msg *pb.Message) PartialState {
+func P2BInference(msg pb.Message) PartialState {
 	return PartialState{ballotNumber: msg.BallotNumber, ballotLeader: msg.BallotLeader, accepted: nil}
 }
 
-func PartialStateEnabled(ps PartialState, from State, msg *pb.Message) (bool, bool, State) {
+func PartialStateEnabled(ps PartialState, from State, msg pb.Message) (bool, bool, State) {
 	if msg.Bsc.BallotNumber > ps.ballotNumber {
 		return false, false, State{}
 	}
+	if msg.Type == P2A { // msg must exist in ps
+		found := false
+		for _, bsc := range ps.accepted[msg.Bsc.BallotNumber] {
+			if reflect.DeepEqual(msg.Bsc, bsc) {
+				return true, false, State{}
+			}
+		}
+		if !found {
+			return false, false, State{}
+		}
+	}
 	s, _ := Apply(from, msg)
 	// TODO
+	for key := range s.accepted { // ok entries of s must also be ok in ps
+		if _, ok := ps.accepted[key]; !ok {
+			return false, true, s
+		}
+	}
 	return true, true, s
 }
 
@@ -94,7 +113,7 @@ func (s *State) Equal(s1 *State) bool {
 	return s.ballotLeader == s1.ballotLeader && s.ballotNumber == s1.ballotNumber && reflect.DeepEqual(s.accepted, s1.accepted)
 }
 
-func Drop(msg *pb.Message, s State) bool {
+func Drop(msg pb.Message, s State) bool {
 	switch msg.Type {
 	case P1A:
 		return msg.Bsc.BallotNumber <= s.ballotNumber && (msg.Bsc.BallotNumber != s.ballotNumber || msg.LeaderId == s.ballotLeader)
@@ -102,5 +121,13 @@ func Drop(msg *pb.Message, s State) bool {
 		return msg.Bsc.BallotNumber < s.ballotNumber || msg.LeaderId != s.ballotLeader
 	default:
 		return true
+	}
+}
+
+func mapCopy[T any](dst map[int32][]*T, src map[int32][]*T) {
+	for key, val := range src {
+		v := make([]*T, len(val))
+		copy(v, val)
+		dst[key] = v
 	}
 }
