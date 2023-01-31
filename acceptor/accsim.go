@@ -2,6 +2,7 @@ package main
 
 import (
 	pb "gopaxos/gopaxos"
+	"reflect"
 )
 
 type State struct {
@@ -28,7 +29,8 @@ func Apply(s State, msg *pb.Message) (State, *pb.Message) {
 }
 
 func (s *State) P2ATransformation(msg *pb.Message) *pb.Message {
-	if s.ballotNumber == msg.Bsc.BallotNumber && s.ballotLeader == msg.LeaderId {
+	if msg.Bsc.BallotNumber >= s.ballotNumber && s.ballotLeader == msg.LeaderId {
+		s.ballotNumber = msg.Bsc.BallotNumber
 		s.accepted[msg.Bsc.BallotNumber] = append(s.accepted[msg.Bsc.BallotNumber], msg.Bsc)
 	}
 	return &pb.Message{Type: P2B, AcceptorId: -1, BallotNumber: s.ballotNumber, BallotLeader: s.ballotLeader}
@@ -48,6 +50,17 @@ func (s *State) P1ATransformation(msg *pb.Message) *pb.Message {
 	return &pb.Message{Type: P1B, AcceptorId: -1, BallotNumber: s.ballotNumber, BallotLeader: s.ballotLeader, Accepted: acceptedList}
 }
 
+func Inference(msg *pb.Message) (interface{}, *pb.Message) {
+	switch msg.Type {
+	case P1B:
+		return P1BInference(msg), &pb.Message{}
+	case P2B:
+		return P2BInference(msg), &pb.Message{}
+	default:
+		return nil, &pb.Message{}
+	}
+}
+
 func P1BInference(msg *pb.Message) PartialState {
 	accepted = make(map[int32][]*pb.BSC)
 	for _, bsc := range msg.Accepted {
@@ -62,4 +75,32 @@ func P1BInference(msg *pb.Message) PartialState {
 
 func P2BInference(msg *pb.Message) PartialState {
 	return PartialState{ballotNumber: msg.BallotNumber, ballotLeader: msg.BallotLeader, accepted: nil}
+}
+
+func PartialStateEnabled(ps PartialState, from State, msg *pb.Message) (bool, State) {
+	if msg.Bsc.BallotNumber > ps.ballotNumber {
+		return false, State{}
+	}
+	s, _ := Apply(from, msg)
+	// TODO
+	return true, s
+}
+
+func PartialStateMatched(ps PartialState, s State) bool {
+	return ps.ballotLeader == s.ballotLeader && ps.ballotNumber == s.ballotNumber && reflect.DeepEqual(ps.accepted, s.accepted)
+}
+
+func (s *State) Equal(s1 *State) bool {
+	return s.ballotLeader == s1.ballotLeader && s.ballotNumber == s1.ballotNumber && reflect.DeepEqual(s.accepted, s1.accepted)
+}
+
+func Drop(msg *pb.Message, s State) bool {
+	switch msg.Type {
+	case P1A:
+		return msg.Bsc.BallotNumber <= s.ballotNumber && (msg.Bsc.BallotNumber != s.ballotNumber || msg.LeaderId == s.ballotLeader)
+	case P2A:
+		return msg.Bsc.BallotNumber < s.ballotNumber || msg.LeaderId != s.ballotLeader
+	default:
+		return true
+	}
 }
