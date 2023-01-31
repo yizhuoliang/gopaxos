@@ -49,8 +49,7 @@ type State struct {
 type PartialState struct {
 	adoptedBallottNumber int32
 	newProposal          *pb.Proposal
-	decisions            map[int32]*pb.Command
-	highestSlot          int32
+	decisions            []*pb.Decision
 }
 
 func Apply(s State, msg *pb.Message) (State, pb.Message) {
@@ -174,31 +173,24 @@ func (s *State) P2BTransformation(msg *pb.Message) {
 	}
 }
 
-func DecisionInference(msg *pb.Decisions) PartialState {
-	decisions := make(map[int32]*pb.Command)
-	highestSlot := int32(0)
-	for _, decision := range msg.Decisions {
-		decisions[decision.SlotNumber] = decision.Command
-		if decision.SlotNumber > highestSlot {
-			highestSlot = decision.SlotNumber
-		}
-	}
-	return PartialState{adoptedBallottNumber: -1, decisions: decisions, highestSlot: highestSlot}
+func DecisionInference(msg *pb.Message) PartialState {
+	return PartialState{adoptedBallottNumber: -1, decisions: msg.Decisions}
 }
 
 // we don't make inference from P1As, a leader can run a scout at anytime without breaking correctness
+// what to do in this case?
 func P1AInference(msg *pb.P1A) PartialState {
-	return PartialState{adoptedBallottNumber: -1, highestSlot: -1}
+	return PartialState{adoptedBallottNumber: -1}
 }
 
 func P2AInference(msg *pb.P2A) PartialState {
 	newProposal := &pb.Proposal{SlotNumber: msg.Bsc.SlotNumber, Command: msg.Bsc.Command}
-	return PartialState{adoptedBallottNumber: msg.Bsc.BallotNumber, newProposal: newProposal, highestSlot: -1}
+	return PartialState{adoptedBallottNumber: msg.Bsc.BallotNumber, newProposal: newProposal}
 }
 
 func PartialStateMatched(end_s *interface{}, s State) (State, bool) {
 	ps := (*end_s).(PartialState)
-	
+
 	if ps.adoptedBallottNumber != -1 && ps.adoptedBallottNumber != s.adoptedBallotNumber {
 		return s, false
 	}
@@ -210,13 +202,16 @@ func PartialStateMatched(end_s *interface{}, s State) (State, bool) {
 		}
 	}
 
-	if ps.highestSlot != 
+	if ps.decisions != nil {
+		for _, decision := range ps.decisions {
+			command, ok := s.decisions[decision.SlotNumber]
+			if !ok || !commandMatched(decision.Command, command) {
+				return s, false
+			}
+		}
+	}
+	return s, true
 }
-
-//  adoptedBallottNumber int32
-// 	newProposal          *pb.Proposal
-// 	decisions            map[int32]*pb.Command
-// 	highestSlot          int32
 
 // --------- HELPER FUNCTIONS BELOW -------------
 
