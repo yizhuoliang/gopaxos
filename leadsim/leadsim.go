@@ -179,10 +179,6 @@ func (s *State) P2BTransformation(msg pb.Message) {
 	}
 }
 
-// func (s *State) Equal(s1 *State) bool {
-// 	return s.adoptedBallotNumber == s1.adoptedBallotNumber && reflect.DeepEqual(s.proposals, s1.proposals) &&
-// }
-
 func DecisionInference(msg pb.Message) PartialState {
 	return PartialState{adoptedBallottNumber: -1, decisions: msg.Decisions}
 }
