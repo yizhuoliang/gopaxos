@@ -86,9 +86,14 @@ func (s *State) ProposalTransformation(msg pb.Message) {
 */
 
 func (s *State) P1BTransformation(msg pb.Message) {
-	// DROP STALE P1B or REFUSALS
-	if msg.BallotNumber <= s.adoptedBallotNumber || msg.BallotLeader != s.leaderId {
+	// DROP STALE P1B
+	if msg.BallotNumber <= s.adoptedBallotNumber {
 		return
+	}
+
+	// P1B IS REFUSAL, CLEAN-UP STALE SCOUT
+	if msg.BallotLeader != s.leaderId {
+		// TODO
 	}
 	registered := false
 	copied := false
@@ -183,11 +188,11 @@ func DecisionInference(msg pb.Message) PartialState {
 
 // we don't make inference from P1As, a leader can run a scout at anytime without breaking correctness
 // what to do in this case?
-func P1AInference(msg *pb.P1A) PartialState {
+func P1AInference(msg pb.Message) PartialState {
 	return PartialState{adoptedBallottNumber: -1}
 }
 
-func P2AInference(msg *pb.P2A) PartialState {
+func P2AInference(msg pb.Message) PartialState {
 	newProposal := &pb.Proposal{SlotNumber: msg.Bsc.SlotNumber, Command: msg.Bsc.Command}
 	return PartialState{adoptedBallottNumber: msg.Bsc.BallotNumber, newProposal: newProposal}
 }
