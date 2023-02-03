@@ -24,13 +24,13 @@ type CommanderState struct {
 	ballotNumber int32
 	bsc          *pb.BSC
 	ackCount     int32
-	ackAcceptors map[int32]bool
+	ackAcceptors []bool
 }
 
 type ScoutState struct {
 	ballotNumber int32
 	ackCount     int32
-	ackAcceptors map[int32]bool
+	ackAcceptors []bool
 	pvalues      []*pb.BSC
 }
 
@@ -38,7 +38,7 @@ type State struct {
 	adoptedBallotNumber int32
 	proposals           map[int32]*pb.Proposal
 	ongoingCommanders   []*CommanderState
-	ongoingScouts       []*ScoutState
+	ongoingScout        *ScoutState
 	decisions           map[int32]*pb.Command
 	highestSlot         int32
 
@@ -90,6 +90,30 @@ func (s *State) P1BTransformation(msg pb.Message) {
 	if msg.BallotNumber <= s.adoptedBallotNumber {
 		return
 	}
+
+	if s.ongoingScout != nil {
+		// Case - Stale Scout
+		if msg.BallotNumber > s.ongoingScout.ballotNumber || (msg.BallotNumber == s.ongoingScout.ballotNumber && msg.BallotLeader != s.leaderId) {
+			s.ongoingScout = nil
+		}
+
+		// Case - Current Scout Update
+		if msg.BallotNumber == s.ongoingScout.ballotNumber && msg.BallotLeader == s.leaderId {
+			newScout := new(ScoutState)
+			scoutStateCopy(newScout, s.ongoingScout)
+			s.ongoingScout = newScout
+			// RESUME HERE
+		}
+	}
+
+	// TRIGGER ADOPTION
+	if s.ongoingScout.ackCount >= acceptorNum/2+1 && s.ongoingScout.ballotNumber > s.adoptedBallotNumber {
+		adoption(s)
+		// clean-up this scout
+		s.ongoingScout = nil
+	}
+
+	// ------
 
 	registered := false
 	copied := false
@@ -221,9 +245,9 @@ func PartialStateMatched(end_s *interface{}, s State) (State, bool) {
 
 // --------- HELPER FUNCTIONS BELOW -------------
 
-func ScoutStateConstructor(ballotNumber int32) *ScoutState {
+func scoutStateConstructor(ballotNumber int32) *ScoutState {
 	scout := new(ScoutState)
-	scout.ackAcceptors = make(map[int32]bool)
+	scout.ackAcceptors = make([]bool, acceptorNum)
 	for i := int32(0); i < acceptorNum; i++ {
 		scout.ackAcceptors[i] = false
 	}
@@ -232,9 +256,19 @@ func ScoutStateConstructor(ballotNumber int32) *ScoutState {
 	return scout
 }
 
-func CommanderStateConstructor(ballotNumber int32, bsc *pb.BSC) *CommanderState {
+// note that, this is deep copy, but not too deep to copy the bsc structs
+func scoutStateCopy(dst *ScoutState, src *ScoutState) {
+	dst.ballotNumber = src.ballotNumber
+	dst.ackCount = src.ackCount
+	dst.ackAcceptors = make([]bool, acceptorNum)
+	copy(dst.ackAcceptors, src.ackAcceptors)
+	dst.pvalues = make([]*pb.BSC, len(src.pvalues))
+	copy(dst.pvalues, src.pvalues)
+}
+
+func commanderStateConstructor(ballotNumber int32, bsc *pb.BSC) *CommanderState {
 	commander := new(CommanderState)
-	commander.ackAcceptors = make(map[int32]bool)
+	commander.ackAcceptors = make([]bool, acceptorNum)
 	for i := int32(0); i < acceptorNum; i++ {
 		commander.ackAcceptors[i] = false
 	}
@@ -248,10 +282,10 @@ func mapCopy[T any](dst map[int32]*T, src map[int32]*T) {
 	}
 }
 
-func adoption(s *State, scout *ScoutState) {
-	s.adoptedBallotNumber = scout.ballotNumber
+func adoption(s *State) {
+	s.adoptedBallotNumber = s.ongoingScout.ballotNumber
 	slotToBallot := make(map[int32]int32) // map from slot number to ballot number to satisfy pmax
-	for _, bsc := range scout.pvalues {
+	for _, bsc := range s.ongoingScout.pvalues {
 		proposal, okProp := s.proposals[bsc.SlotNumber]
 		if okProp {
 			originalBallot, okBall := slotToBallot[proposal.SlotNumber]
