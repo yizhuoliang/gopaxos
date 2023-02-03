@@ -91,22 +91,23 @@ func (s *State) P1BTransformation(msg pb.Message) {
 		return
 	}
 
-	// P1B IS REFUSAL, CLEAN-UP STALE SCOUT
-	if msg.BallotLeader != s.leaderId {
-		// TODO
-	}
 	registered := false
 	copied := false
 	// of course there should be only 1 ongoing scout at a time, but I don't restrict it here
 	for i, scout := range s.ongoingScouts {
-		// Case: stale scout
-		if msg.BallotNumber > scout.ballotNumber {
-			scouts := make([]*ScoutState, len(s.ongoingScouts))
-			copy(scouts, s.ongoingScouts)
-			s.ongoingScouts = scouts
-			copied = true
+		// Case: stale scout (AVOID ADDING SMALLER SCOUTS WHEN HIGHER SCOUT EXIST)
+		if msg.BallotNumber > scout.ballotNumber || (msg.BallotNumber == scout.ballotNumber && msg.BallotLeader != s.leaderId) {
+			if !copied {
+				scouts := make([]*ScoutState, len(s.ongoingScouts))
+				copy(scouts, s.ongoingScouts)
+				s.ongoingScouts = scouts
+				copied = true
+			}
 			s.ongoingScouts = append(s.ongoingScouts[:i], s.ongoingScouts[i+1:]...)
 			continue
+		} else if msg.BallotNumber < scout.ballotNumber {
+			// AVOID ADDING SMALLER SCOUTS WHEN HIGHER SCOUT EXIST
+			registered = true
 		}
 
 		// Case: scout can be updated
@@ -131,7 +132,7 @@ func (s *State) P1BTransformation(msg pb.Message) {
 		}
 	}
 	// Case: the scout isn't registered
-	if !registered {
+	if !registered && msg.BallotLeader == s.leaderId {
 		if !copied {
 			scouts := make([]*ScoutState, len(s.ongoingScouts))
 			copy(scouts, s.ongoingScouts)
