@@ -106,7 +106,6 @@ func PartialStateEnabled(ps PartialState, from State, msg pb.Message) (bool, boo
 	return true, true, s
 }
 
-// be careful about DeepEqual !!!!!!!!!!!!!!!!!!!!!!!!!!!
 func PartialStateMatched(ps PartialState, s State) bool {
 	return ps.ballotLeader == s.ballotLeader && ps.ballotNumber == s.ballotNumber && AcceptedMatch(ps.accepted, s.accepted)
 }
@@ -134,7 +133,30 @@ func mapCopy[T any](dst map[int32][]*T, src map[int32][]*T) {
 	}
 }
 
+// invariant L1 ensures unique ballot-slot -> command
+// for any slot, bsc with the highest ballot matters
+// a1 matches a2 iff their slots map to the same highest ballot
 func AcceptedMatch(a1 map[int32][]*pb.BSC, a2 map[int32][]*pb.BSC) bool {
-	// TODO
-	return false
+	a1SlotToBallot := make(map[int32]int32)
+	for ballot, bscs := range a1 {
+		for _, bsc := range bscs {
+			if b, ok := a1SlotToBallot[bsc.SlotNumber]; !ok || b < ballot {
+				a1SlotToBallot[bsc.SlotNumber] = ballot
+			}
+		}
+	}
+	a2SlotToBallot := make(map[int32]int32)
+	for ballot, bscs := range a2 {
+		for _, bsc := range bscs {
+			if b, ok := a2SlotToBallot[bsc.SlotNumber]; !ok || b < ballot {
+				a2SlotToBallot[bsc.SlotNumber] = ballot
+			}
+		}
+	}
+	for slot, ballot := range a1SlotToBallot {
+		if a2SlotToBallot[slot] != ballot {
+			return false
+		}
+	}
+	return true
 }
