@@ -41,7 +41,6 @@ type State struct {
 	ongoingCommanders   []*CommanderState
 	ongoingScout        *ScoutState
 	decisions           []*pb.Command
-	highestSlot         int32
 
 	// constants
 	leaderId int32
@@ -155,9 +154,6 @@ func (s *State) P2BTransformation(msg pb.Message) {
 					s.decisions = append(s.decisions, newChunk...) // TODO: test this part
 				}
 				s.decisions[commander.bsc.SlotNumber] = commander.bsc.Command
-				if commander.bsc.SlotNumber > s.highestSlot {
-					s.highestSlot = commander.bsc.SlotNumber
-				}
 				// clean-up this commander
 				s.ongoingCommanders = append(s.ongoingCommanders[:i], s.ongoingCommanders[i+1:]...)
 			}
@@ -196,8 +192,11 @@ func PartialStateMatched(end_s *interface{}, s State) (State, bool) {
 
 	if ps.decisions != nil {
 		for _, decision := range ps.decisions {
-			command, ok := s.decisions[decision.SlotNumber]
-			if !ok || !reflect.DeepEqual(decision.Command, command) {
+			if len(s.decisions) <= int(decision.SlotNumber) {
+				return s, false
+			}
+
+			if s.decisions[decision.SlotNumber] == nil || !reflect.DeepEqual(decision.Command, s.decisions[decision.SlotNumber]) {
 				return s, false
 			}
 		}
@@ -206,7 +205,44 @@ func PartialStateMatched(end_s *interface{}, s State) (State, bool) {
 }
 
 func (s *State) Equal(s1 *State) bool {
+	if s.adoptedBallotNumber != s1.adoptedBallotNumber {
+		return false
+	}
 
+	if !reflect.DeepEqual(s.proposals, s1.proposals) {
+		return false
+	}
+
+	if !reflect.DeepEqual(s.ongoingScout, s1.ongoingScout) {
+		return false
+	}
+
+	if !reflect.DeepEqual(s.decisions, s1.decisions) {
+		return false
+	}
+
+	// TODO: think of this condition more carefully
+	if len(s.ongoingCommanders) != len(s1.ongoingCommanders) {
+		return false
+	}
+
+	commanderMap := make(map[int32]*CommanderState, len(s.ongoingCommanders)+1)
+
+	for _, commander := range s.ongoingCommanders {
+		originalCommander, ok := commanderMap[commander.bsc.SlotNumber]
+		if !ok || originalCommander.bsc.BallotNumber < commander.ballotNumber {
+			commanderMap[commander.ballotNumber] = commander
+		}
+	}
+
+	for _, commadner := range s1.ongoingCommanders {
+		concreteCommander, ok := commanderMap[commadner.bsc.SlotNumber]
+		if !ok || !reflect.DeepEqual(commadner, concreteCommander) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // type State struct {
@@ -215,7 +251,6 @@ func (s *State) Equal(s1 *State) bool {
 // 	ongoingCommanders   []*CommanderState
 // 	ongoingScout        *ScoutState
 // 	decisions           map[int32]*pb.Command
-// 	highestSlot         int32
 
 // 	// constants
 // 	leaderId int32
