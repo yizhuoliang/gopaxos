@@ -40,7 +40,7 @@ type State struct {
 	proposals           map[int32]*pb.Proposal
 	ongoingCommanders   []*CommanderState
 	ongoingScout        *ScoutState
-	decisions           map[int32]*pb.Command
+	decisions           []*pb.Command
 	highestSlot         int32
 
 	// constants
@@ -127,21 +127,33 @@ func (s *State) P1BTransformation(msg pb.Message) {
 }
 
 func (s *State) P2BTransformation(msg pb.Message) {
-	copied := false
+	copiedCom := false
+	copiedDec := false
 	for i, commander := range s.ongoingCommanders {
 		// since we don't know which commander is this P2B responding, just find all commander that can take this P2B
 		if msg.BallotNumber == commander.ballotNumber && msg.BallotLeader == s.leaderId && !commander.ackAcceptors[msg.AcceptorId] {
-			if !copied {
+			if !copiedCom {
 				// copy on write
 				commanders := make([]*CommanderState, len(s.ongoingCommanders))
 				copy(commanders, s.ongoingCommanders)
 				s.ongoingCommanders = commanders
-				copied = true
+				copiedCom = true
 			}
 			commander.ackAcceptors[msg.AcceptorId] = true
 			commander.ackCount++
 			// RECORD THIS SLOT BEING DECIDED (assuming that the bsc for the slot in "proposals" won't change latter)
 			if commander.ackCount >= acceptorNum/2+1 {
+				if !copiedDec {
+					// copy on write
+					decisions := make([]*pb.Command, len(s.decisions))
+					copy(decisions, s.decisions)
+					s.decisions = decisions
+					copiedDec = true
+				}
+				if len(s.decisions) <= int(commander.bsc.SlotNumber) {
+					newChunk := make([]*pb.Command, int(commander.bsc.SlotNumber)-len(s.decisions)+1)
+					s.decisions = append(s.decisions, newChunk...) // TODO: test this part
+				}
 				s.decisions[commander.bsc.SlotNumber] = commander.bsc.Command
 				if commander.bsc.SlotNumber > s.highestSlot {
 					s.highestSlot = commander.bsc.SlotNumber
@@ -158,10 +170,9 @@ func DecisionInference(msg pb.Message) PartialState {
 	return PartialState{adoptedBallottNumber: -1, decisions: msg.Decisions}
 }
 
-// we don't make inference from P1As, a leader can run a scout at anytime without breaking correctness
-// what to do in this case?
+// Note that a leader can run a scout at anytime without breaking correctness
 func P1AInference(msg pb.Message) PartialState {
-	return PartialState{adoptedBallottNumber: -1}
+	return PartialState{adoptedBallottNumber: msg.Bsc.BallotNumber}
 }
 
 func P2AInference(msg pb.Message) PartialState {
