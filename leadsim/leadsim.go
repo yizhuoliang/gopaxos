@@ -2,6 +2,7 @@ package main
 
 import (
 	pb "gopaxos/gopaxos"
+	"reflect"
 )
 
 const (
@@ -98,12 +99,23 @@ func (s *State) P1BTransformation(msg pb.Message) {
 		}
 
 		// Case - Current Scout Update
-		if msg.BallotNumber == s.ongoingScout.ballotNumber && msg.BallotLeader == s.leaderId {
+		if msg.BallotNumber == s.ongoingScout.ballotNumber && msg.BallotLeader == s.leaderId && !s.ongoingScout.ackAcceptors[msg.AcceptorId] {
 			newScout := new(ScoutState)
 			scoutStateCopy(newScout, s.ongoingScout)
 			s.ongoingScout = newScout
-			// RESUME HERE
+			s.ongoingScout.ackAcceptors[msg.AcceptorId] = true
+			s.ongoingScout.ackCount++
+			s.ongoingScout.pvalues = append(s.ongoingScout.pvalues, msg.Accepted...)
 		}
+	}
+
+	// Case - Register new Scout
+	if s.ongoingScout == nil && msg.BallotLeader == s.leaderId {
+		newScout := scoutStateConstructor(msg.BallotNumber)
+		s.ongoingScout = newScout
+		s.ongoingScout.ackAcceptors[msg.AcceptorId] = true
+		s.ongoingScout.ackCount++
+		s.ongoingScout.pvalues = append(s.ongoingScout.pvalues, msg.Accepted...)
 	}
 
 	// TRIGGER ADOPTION
@@ -111,67 +123,6 @@ func (s *State) P1BTransformation(msg pb.Message) {
 		adoption(s)
 		// clean-up this scout
 		s.ongoingScout = nil
-	}
-
-	// ------
-
-	registered := false
-	copied := false
-	// of course there should be only 1 ongoing scout at a time, but I don't restrict it here
-	for i, scout := range s.ongoingScouts {
-		// Case: stale scout (AVOID ADDING SMALLER SCOUTS WHEN HIGHER SCOUT EXIST)
-		if msg.BallotNumber > scout.ballotNumber || (msg.BallotNumber == scout.ballotNumber && msg.BallotLeader != s.leaderId) {
-			if !copied {
-				scouts := make([]*ScoutState, len(s.ongoingScouts))
-				copy(scouts, s.ongoingScouts)
-				s.ongoingScouts = scouts
-				copied = true
-			}
-			s.ongoingScouts = append(s.ongoingScouts[:i], s.ongoingScouts[i+1:]...)
-			continue
-		} else if msg.BallotNumber < scout.ballotNumber {
-			// AVOID ADDING SMALLER SCOUTS WHEN HIGHER SCOUT EXIST
-			registered = true
-		}
-
-		// Case: scout can be updated
-		if msg.BallotNumber == scout.ballotNumber && msg.BallotLeader == s.leaderId && !scout.ackAcceptors[msg.AcceptorId] {
-			registered = true
-			// UPDATE THIS SCOUT STATE
-			if !copied {
-				scouts := make([]*ScoutState, len(s.ongoingScouts))
-				copy(scouts, s.ongoingScouts)
-				s.ongoingScouts = scouts
-				copied = true
-			}
-			scout.ackAcceptors[msg.AcceptorId] = true
-			scout.pvalues = append(scout.pvalues, msg.Accepted...)
-			scout.ackCount++
-			// TRIGGER ADOPTION
-			if scout.ackCount >= acceptorNum/2+1 && scout.ballotNumber > s.adoptedBallotNumber {
-				adoption(s, scout)
-				// clean-up this scout
-				s.ongoingScouts = append(s.ongoingScouts[:i], s.ongoingScouts[i+1:]...)
-			}
-		}
-	}
-	// Case: the scout isn't registered
-	if !registered && msg.BallotLeader == s.leaderId {
-		if !copied {
-			scouts := make([]*ScoutState, len(s.ongoingScouts))
-			copy(scouts, s.ongoingScouts)
-			s.ongoingScouts = scouts
-		}
-		originalLen := len(s.ongoingScouts)
-		newScout := ScoutStateConstructor(msg.BallotNumber)
-		newScout.ackAcceptors[msg.AcceptorId] = true
-		newScout.ackCount = 1
-		s.ongoingScouts = append(s.ongoingScouts, newScout)
-		if newScout.ackCount >= acceptorNum/2+1 && newScout.ballotNumber > s.adoptedBallotNumber {
-			adoption(s, newScout)
-			// clean-up this scout
-			s.ongoingScouts = append(s.ongoingScouts[:originalLen])
-		}
 	}
 }
 
@@ -227,7 +178,7 @@ func PartialStateMatched(end_s *interface{}, s State) (State, bool) {
 
 	if ps.newProposal != nil {
 		prop, ok := s.proposals[ps.newProposal.SlotNumber]
-		if !ok || !commandMatched(prop.Command, ps.newProposal.Command) {
+		if !ok || !reflect.DeepEqual(prop.Command, ps.newProposal.Command) {
 			return s, false
 		}
 	}
@@ -235,13 +186,29 @@ func PartialStateMatched(end_s *interface{}, s State) (State, bool) {
 	if ps.decisions != nil {
 		for _, decision := range ps.decisions {
 			command, ok := s.decisions[decision.SlotNumber]
-			if !ok || !commandMatched(decision.Command, command) {
+			if !ok || !reflect.DeepEqual(decision.Command, command) {
 				return s, false
 			}
 		}
 	}
 	return s, true
 }
+
+func (s *State) Equal(s1 *State) bool {
+
+}
+
+// type State struct {
+// 	adoptedBallotNumber int32
+// 	proposals           map[int32]*pb.Proposal
+// 	ongoingCommanders   []*CommanderState
+// 	ongoingScout        *ScoutState
+// 	decisions           map[int32]*pb.Command
+// 	highestSlot         int32
+
+// 	// constants
+// 	leaderId int32
+// }
 
 // --------- HELPER FUNCTIONS BELOW -------------
 
@@ -304,11 +271,7 @@ func adoption(s *State) {
 			// copy on write
 			commanders := make([]*CommanderState, len(s.ongoingCommanders))
 			copy(commanders, s.ongoingCommanders)
-			s.ongoingCommanders = append(commanders, CommanderStateConstructor(s.adoptedBallotNumber, &pb.BSC{BallotNumber: s.adoptedBallotNumber, SlotNumber: proposal.SlotNumber, Command: proposal.Command}))
+			s.ongoingCommanders = append(commanders, commanderStateConstructor(s.adoptedBallotNumber, &pb.BSC{BallotNumber: s.adoptedBallotNumber, SlotNumber: proposal.SlotNumber, Command: proposal.Command}))
 		}
 	}
-}
-
-func commandMatched(c1 *pb.Command, c2 *pb.Command) bool {
-	return c1.ClientId == c2.ClientId && c1.CommandId == c1.CommandId
 }
