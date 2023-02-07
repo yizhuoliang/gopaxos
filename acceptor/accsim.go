@@ -8,13 +8,13 @@ import (
 type State struct {
 	ballotNumber int32
 	ballotLeader int32
-	accepted     map[int32][]*pb.BSC
+	accepted     [][]*pb.BSC
 }
 
 type PartialState struct {
 	ballotNumber int32
 	ballotLeader int32
-	accepted     map[int32][]*pb.BSC
+	accepted     [][]*pb.BSC
 }
 
 func Apply(s State, msg pb.Message) (State, pb.Message) {
@@ -45,8 +45,8 @@ func (s *State) P1ATransformation(msg pb.Message) pb.Message {
 func (s *State) P2ATransformation(msg pb.Message) pb.Message {
 	if msg.Bsc.BallotNumber >= s.ballotNumber && s.ballotLeader == msg.LeaderId {
 		s.ballotNumber = msg.Bsc.BallotNumber
-		m := make(map[int32][]*pb.BSC)
-		mapCopy(m, s.accepted)
+		m := make([][]*pb.BSC, len(s.accepted))
+		copy(m, s.accepted)
 		s.accepted = m
 		s.accepted[msg.Bsc.BallotNumber] = append(s.accepted[msg.Bsc.BallotNumber], msg.Bsc)
 	}
@@ -65,10 +65,9 @@ func Inference(msg pb.Message) (interface{}, pb.Message) {
 }
 
 func P1BInference(msg pb.Message) PartialState {
-	accepted = make(map[int32][]*pb.BSC)
+	accepted := make([][]*pb.BSC, msg.BallotNumber)
 	for _, bsc := range msg.Accepted {
-		_, ok := accepted[bsc.BallotNumber]
-		if !ok {
+		if accepted[bsc.BallotNumber] == nil {
 			accepted[bsc.BallotNumber] = make([]*pb.BSC, 0)
 		}
 		accepted[bsc.BallotNumber] = append(accepted[bsc.BallotNumber], bsc)
@@ -125,31 +124,26 @@ func Drop(msg pb.Message, s State) bool {
 	}
 }
 
-func mapCopy[T any](dst map[int32][]*T, src map[int32][]*T) {
-	for key, val := range src {
-		v := make([]*T, len(val))
-		copy(v, val)
-		dst[key] = v
-	}
-}
-
 // invariant L1 ensures unique ballot-slot -> command
 // for any slot, bsc with the highest ballot matters
 // a1 matches a2 iff their slots map to the same highest ballot
-func AcceptedMatch(a1 map[int32][]*pb.BSC, a2 map[int32][]*pb.BSC) bool {
-	a1SlotToBallot := make(map[int32]int32)
+func AcceptedMatch(a1 [][]*pb.BSC, a2 [][]*pb.BSC) bool {
+	if len(a1) != len(a2) {
+		return false
+	}
+	a1SlotToBallot := make([]int32, len(a1))
 	for ballot, bscs := range a1 {
 		for _, bsc := range bscs {
-			if b, ok := a1SlotToBallot[bsc.SlotNumber]; !ok || b < ballot {
-				a1SlotToBallot[bsc.SlotNumber] = ballot
+			if a1SlotToBallot[bsc.SlotNumber] < int32(ballot) {
+				a1SlotToBallot[bsc.SlotNumber] = int32(ballot)
 			}
 		}
 	}
-	a2SlotToBallot := make(map[int32]int32)
+	a2SlotToBallot := make([]int32, len(a2))
 	for ballot, bscs := range a2 {
 		for _, bsc := range bscs {
-			if b, ok := a2SlotToBallot[bsc.SlotNumber]; !ok || b < ballot {
-				a2SlotToBallot[bsc.SlotNumber] = ballot
+			if a2SlotToBallot[bsc.SlotNumber] < int32(ballot) {
+				a2SlotToBallot[bsc.SlotNumber] = int32(ballot)
 			}
 		}
 	}
