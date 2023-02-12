@@ -40,16 +40,16 @@ type State struct {
 	proposals           map[int32]*pb.Proposal
 	ongoingCommanders   []*CommanderState
 	ongoingScout        *ScoutState
-	decisions           []*pb.Command
+	decisions           []*pb.Decision
 
 	// constants
 	leaderId int32
 }
 
 type PartialState struct {
-	adoptedBallottNumber int32
-	newProposal          *pb.Proposal
-	decisions            []*pb.Decision
+	adoptedBallotNumber int32
+	newProposal         *pb.Proposal
+	decisions           []*pb.Decision
 }
 
 func Apply(s State, msg pb.Message) (State, pb.Message) {
@@ -144,16 +144,16 @@ func (s *State) P2BTransformation(msg pb.Message) {
 			if commander.ackCount >= acceptorNum/2+1 {
 				if !copiedDec {
 					// copy on write
-					decisions := make([]*pb.Command, len(s.decisions))
+					decisions := make([]*pb.Decision, len(s.decisions))
 					copy(decisions, s.decisions)
 					s.decisions = decisions
 					copiedDec = true
 				}
 				if len(s.decisions) <= int(commander.bsc.SlotNumber) {
-					newChunk := make([]*pb.Command, int(commander.bsc.SlotNumber)-len(s.decisions)+1)
+					newChunk := make([]*pb.Decision, int(commander.bsc.SlotNumber)-len(s.decisions)+1)
 					s.decisions = append(s.decisions, newChunk...) // TODO: test this part
 				}
-				s.decisions[commander.bsc.SlotNumber] = commander.bsc.Command
+				s.decisions[commander.bsc.SlotNumber] = &pb.Decision{SlotNumber: commander.bsc.SlotNumber, Command: commander.bsc.Command}
 				// clean-up this commander
 				s.ongoingCommanders = append(s.ongoingCommanders[:i], s.ongoingCommanders[i+1:]...)
 			}
@@ -163,23 +163,41 @@ func (s *State) P2BTransformation(msg pb.Message) {
 }
 
 func DecisionInference(msg pb.Message) PartialState {
-	return PartialState{adoptedBallottNumber: -1, decisions: msg.Decisions}
+	decisions := make([]*pb.Decision, len(msg.Decisions))
+	for _, decision := range msg.Decisions {
+		decisions[decision.SlotNumber] = decision
+	}
+	return PartialState{adoptedBallotNumber: -1, decisions: decisions}
 }
 
 // Note that a leader can run a scout at anytime without breaking correctness
+// and we actually don't make any inference from P1A
 func P1AInference(msg pb.Message) PartialState {
-	return PartialState{adoptedBallottNumber: msg.Bsc.BallotNumber}
+	return PartialState{adoptedBallotNumber: -1}
 }
 
 func P2AInference(msg pb.Message) PartialState {
 	newProposal := &pb.Proposal{SlotNumber: msg.Bsc.SlotNumber, Command: msg.Bsc.Command}
-	return PartialState{adoptedBallottNumber: msg.Bsc.BallotNumber, newProposal: newProposal}
+	return PartialState{adoptedBallotNumber: msg.Bsc.BallotNumber, newProposal: newProposal}
+}
+
+func Inference(msg pb.Message) (interface{}, pb.Message) {
+	switch msg.Type {
+	case DECISIONS:
+		return DecisionInference(msg), pb.Message{}
+	case P1A:
+		return P1AInference(msg), pb.Message{}
+	case P2A:
+		return P2AInference(msg), pb.Message{}
+	default:
+		return nil, pb.Message{}
+	}
 }
 
 func PartialStateMatched(end_s *interface{}, s State) (State, bool) {
 	ps := (*end_s).(PartialState)
 
-	if ps.adoptedBallottNumber != -1 && ps.adoptedBallottNumber != s.adoptedBallotNumber {
+	if ps.adoptedBallotNumber != -1 && ps.adoptedBallotNumber != s.adoptedBallotNumber {
 		return s, false
 	}
 
@@ -205,6 +223,10 @@ func PartialStateMatched(end_s *interface{}, s State) (State, bool) {
 }
 
 func (s *State) Equal(s1 *State) bool {
+	if s.leaderId != s1.leaderId {
+		return false
+	}
+
 	if s.adoptedBallotNumber != s1.adoptedBallotNumber {
 		return false
 	}
@@ -245,16 +267,57 @@ func (s *State) Equal(s1 *State) bool {
 	return true
 }
 
-// type State struct {
-// 	adoptedBallotNumber int32
-// 	proposals           map[int32]*pb.Proposal
-// 	ongoingCommanders   []*CommanderState
-// 	ongoingScout        *ScoutState
-// 	decisions           map[int32]*pb.Command
+// first bool - if this partial state is reachable from "from"
+// secon bool - if the transformation function is already applied to the returned state strcut
+func PartialStateEnabled(end_s *interface{}, from State, msg pb.Message) (bool, bool, State) {
+	ps := (*end_s).(PartialState)
+	if ps.adoptedBallotNumber != -1 {
+		if from.adoptedBallotNumber > ps.adoptedBallotNumber {
+			return false, false, from
+		}
+	}
 
-// 	// constants
-// 	leaderId int32
-// }
+	if ps.newProposal != nil {
+		slotPs := ps.newProposal.SlotNumber
+		if len(from.decisions) > int(slotPs) && from.decisions[slotPs] != nil && from.decisions[slotPs].Command.CommandId != ps.newProposal.Command.CommandId {
+			return false, false, from
+		}
+	}
+
+	if ps.decisions != nil {
+		// "from" state decisions must be the subset of partial state
+		if len(from.decisions) > len(ps.decisions) {
+			return false, false, from
+		}
+
+		for i, _ := range from.decisions {
+			if !reflect.DeepEqual(from.decisions[i], ps.decisions[i]) {
+				return false, false, from
+			}
+		}
+	}
+
+	return true, false, from
+}
+
+func Drop(msg pb.Message, s *State) bool {
+	switch msg.Type {
+	case PROPOSAL:
+		_, ok := s.proposals[msg.SlotNumber]
+		if !ok {
+			return false
+		}
+	case P1B:
+		if msg.BallotNumber > s.adoptedBallotNumber {
+			return false
+		}
+	case P2B:
+		if len(s.ongoingCommanders) != 0 {
+			return false
+		}
+	}
+	return true
+}
 
 // --------- HELPER FUNCTIONS BELOW -------------
 
