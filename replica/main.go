@@ -37,8 +37,8 @@ var (
 	replicaPorts = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
 
 	state     string = ""
-	slot_in   int32  = 1
-	slot_out  int32  = 1
+	slot_in   int32  = 0
+	slot_out  int32  = 0
 	requests  [leaderNum]chan *pb.Command
 	proposals map[int32]*pb.Proposal
 	decisions map[int32]*pb.Decision
@@ -222,7 +222,7 @@ func (s *replicaServer) Request(ctx context.Context, in *pb.Message) (*pb.Messag
 
 func (s *replicaServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	var responseList []*pb.Response
-	var i int32 = 1
+	var i int32 = 0
 	<-mutexChannel
 	_, ok := decisions[i]
 	for ok { // concurrent access (fatal)

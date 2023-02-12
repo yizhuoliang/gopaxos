@@ -49,7 +49,7 @@ func Inference(msg pb.Message) (interface{}, pb.Message) {
 func RespInference(msg pb.Message) PartialState {
 	if msg.Valid {
 		decs := make([]*pb.Decision, len(msg.Responses))
-		for i := 1; i < len(msg.Responses); i++ {
+		for i := 0; i < len(msg.Responses); i++ {
 			decs[i] = &pb.Decision{SlotNumber: int32(i), Command: msg.Responses[i].Command}
 		}
 		return PartialState{decisions: decs}
