@@ -5,6 +5,19 @@ import (
 	"reflect"
 )
 
+const (
+	COMMAND   = 1
+	RESPONSES = 2
+	PROPOSAL  = 3
+	DECISIONS = 4
+	BEAT      = 5
+	P1A       = 6
+	P1B       = 7
+	P2A       = 8
+	P2B       = 9
+	EMPTY     = 10
+)
+
 type State struct {
 	ballotNumber int32
 	ballotLeader int32
@@ -34,9 +47,9 @@ func (s *State) P1ATransformation(msg pb.Message) pb.Message {
 		s.ballotLeader = msg.LeaderId
 	}
 	var acceptedList []*pb.BSC
-	for i := 1; i < int(ballotNumber); i++ {
-		if bscs, ok := accepted[int32(i)]; ok {
-			acceptedList = append(acceptedList, bscs...)
+	for i := 1; i < int(s.ballotNumber); i++ {
+		if s.accepted[int32(i)] != nil {
+			acceptedList = append(acceptedList, s.accepted[int32(i)]...)
 		}
 	}
 	return pb.Message{Type: P1B, AcceptorId: -1, BallotNumber: s.ballotNumber, BallotLeader: s.ballotLeader, Accepted: acceptedList}
