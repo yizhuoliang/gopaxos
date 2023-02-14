@@ -268,7 +268,7 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	r, err := c.Scouting(ctx, &pb.Message{Type: P1A, LeaderId: leaderId, BallotNumber: scoutBallotNumber})
+	r, err := c.Scouting(ctx, &pb.Message{Type: P1A, LeaderId: leaderId, BallotNumber: scoutBallotNumber, Send: true})
 	if err != nil {
 		log.Printf("scouting failed: %v", err)
 		scoutCollectChannel <- &pb.P1B{AcceptorId: -1}
@@ -319,7 +319,7 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	r, err := c.Commanding(ctx, &pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc})
+	r, err := c.Commanding(ctx, &pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc, Send: true})
 	if err != nil {
 		commanderCollectChannel <- &pb.P2B{AcceptorId: -1}
 		return
@@ -331,13 +331,13 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 1, newProposal: &pb.Proposal{SlotNumber: in.SlotNumber, Command: in.Command}} // Weird? Yes! Things can only be down after chekcing proposals
 	log.Printf("Received proposal with commandId %s and slot number %d", in.Command.CommandId, in.SlotNumber)
-	return &pb.Message{Type: EMPTY, Content: "success"}, nil
+	return &pb.Message{Type: EMPTY, Content: "success", Send: true}, nil
 }
 
 func (s *leaderServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
-	return &pb.Message{Type: DECISIONS, Valid: true, Decisions: decisions}, nil
+	return &pb.Message{Type: DECISIONS, Valid: true, Decisions: decisions, Send: true}, nil
 }
 
 func (s *leaderServer) Heartbeat(ctx context.Context, in *pb.Message) (*pb.Message, error) {
-	return &pb.Message{Type: BEAT, Active: active}, nil
+	return &pb.Message{Type: BEAT, Active: active, Send: true}, nil
 }

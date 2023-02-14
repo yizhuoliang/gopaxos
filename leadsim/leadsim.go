@@ -22,6 +22,7 @@ const (
 )
 
 type CommanderState struct {
+	role         int32
 	ballotNumber int32
 	bsc          *pb.BSC
 	ackCount     int32
@@ -29,6 +30,7 @@ type CommanderState struct {
 }
 
 type ScoutState struct {
+	role         int32
 	ballotNumber int32
 	ackCount     int32
 	ackAcceptors []bool

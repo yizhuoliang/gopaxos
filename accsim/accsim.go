@@ -19,12 +19,14 @@ const (
 )
 
 type State struct {
+	role         int32
 	ballotNumber int32
 	ballotLeader int32
 	accepted     [][]*pb.BSC
 }
 
 type PartialState struct {
+	role         int32
 	ballotNumber int32
 	ballotLeader int32
 	accepted     [][]*pb.BSC

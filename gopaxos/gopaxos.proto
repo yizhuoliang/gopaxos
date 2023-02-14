@@ -40,6 +40,7 @@ message Message {
     repeated BSC accepted = 15;
     bool active = 16;
     string content = 17;
+    bool send = 18;
 }
 
 message Command {
