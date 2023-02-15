@@ -1,4 +1,4 @@
-module gopaxos
+module github.com/yizhuoliang/gopaxos
 
 go 1.18
 
