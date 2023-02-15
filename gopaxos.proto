@@ -1,7 +1,5 @@
 syntax = "proto3";
 
-option go_package = "./";
-
 package gopaxos;
 
 // the service replicas provide to clients
