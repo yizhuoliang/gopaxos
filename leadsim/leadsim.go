@@ -1,8 +1,9 @@
 package main
 
 import (
-	pb "gopaxos/gopaxos"
 	"reflect"
+
+	pb "github.com/yizhuoliang/gopaxos"
 )
 
 const (

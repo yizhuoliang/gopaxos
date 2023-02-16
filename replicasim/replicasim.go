@@ -1,7 +1,7 @@
 package main
 
 import (
-	pb "gopaxos/gopaxos"
+	pb "github.com/yizhuoliang/gopaxos"
 )
 
 const (

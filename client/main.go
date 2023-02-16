@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	pb "gopaxos/gopaxos"
+	pb "github.com/yizhuoliang/gopaxos"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

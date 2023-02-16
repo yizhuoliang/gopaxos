@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
-	pb "gopaxos/gopaxos"
 	"log"
 	"net"
 	"os"
 	"strconv"
 	"time"
+
+	pb "github.com/yizhuoliang/gopaxos"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
