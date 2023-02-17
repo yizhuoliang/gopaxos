@@ -23,7 +23,6 @@ const (
 )
 
 type CommanderState struct {
-	role         int32
 	ballotNumber int32
 	bsc          *pb.BSC
 	ackCount     int32
@@ -31,7 +30,6 @@ type CommanderState struct {
 }
 
 type ScoutState struct {
-	role         int32
 	ballotNumber int32
 	ackCount     int32
 	ackAcceptors []bool
@@ -39,6 +37,7 @@ type ScoutState struct {
 }
 
 type State struct {
+	role                int32
 	adoptedBallotNumber int32
 	proposals           map[int32]*pb.Proposal
 	ongoingCommanders   []*CommanderState
@@ -50,6 +49,7 @@ type State struct {
 }
 
 type PartialState struct {
+	role                int32
 	adoptedBallotNumber int32
 	newProposal         *pb.Proposal
 	decisions           []*pb.Decision
