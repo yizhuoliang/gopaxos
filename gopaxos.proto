@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package gopaxos;
 
+option go_package = "./";
+
 // the service replicas provide to clients
 service ClientReplica {
     rpc Request (Message) returns (Message) {}
@@ -38,7 +40,8 @@ message Message {
     repeated BSC accepted = 15;
     bool active = 16;
     string content = 17;
-    bool send = 18;
+    Message req = 18;
+    bool send = 19;
 }
 
 message Command {
