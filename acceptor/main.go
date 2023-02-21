@@ -8,10 +8,10 @@ import (
 	"strconv"
 
 	pb "github.com/yizhuoliang/gopaxos"
+	"github.com/yizhuoliang/gopaxos/comm"
 
 	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -56,12 +56,19 @@ func main() {
 	acceptorId = int32(temp)
 
 	// connect sim
-	simc, err := grpc.Dial("127.0.0.1:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	var err error
+	simc, err = net.Dial("tcp", "127.0.0.1:9090")
 	if err != nil {
 		log.Printf("failed to connect to simulator: %v", err)
 		return
 	}
 	defer simc.Close()
+
+	log.Printf("Connected to simulator, out=%v, in=%v\n", simc, simc)
+	// write my id
+	comm.NetWrite(simc, comm.EncodeUint64(uint64(acceptorId)))
+	// write cluster info length
+	comm.NetWrite(simc, comm.EncodeUint64(uint64(3)))
 
 	// initialization
 	accepted = make(map[int32][]*pb.BSC)

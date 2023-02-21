@@ -9,8 +9,9 @@ import (
 	"time"
 
 	pb "github.com/yizhuoliang/gopaxos"
+	"github.com/yizhuoliang/gopaxos/comm"
 
-	// "github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -53,18 +54,18 @@ var (
 
 	mutexChannel chan int32
 
-	// simc pb.NodeSimulatorClient
+	simc ReaderWriter
 )
 
 type replicaServer struct {
 	pb.UnimplementedClientReplicaServer
 }
 
-// type ReaderWriter interface {
-// 	Write(b []byte) (n int, err error)
-// 	Read(b []byte) (n int, err error)
-// 	Close() error
-// }
+type ReaderWriter interface {
+	Write(b []byte) (n int, err error)
+	Read(b []byte) (n int, err error)
+	Close() error
+}
 
 type replicaStateUpdateRequest struct {
 	updateType   int
@@ -77,15 +78,20 @@ func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	replicaId = int32(temp)
 
-	// // connect sim
-	// conn, err := grpc.Dial("127.0.0.1:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	// if err != nil {
-	// 	log.Printf("failed to connect to simulator: %v", err)
-	// 	return
-	// }
-	// defer conn.Close()
+	// connect sim
+	var err error
+	simc, err = net.Dial("tcp", "127.0.0.1:9090")
+	if err != nil {
+		log.Printf("failed to connect to simulator: %v", err)
+		return
+	}
+	defer simc.Close()
 
-	// simc = pb.NewNodeSimulatorClient(conn)
+	log.Printf("Connected to simulator, out=%v, in=%v\n", simc, simc)
+	// write my id
+	comm.NetWrite(simc, comm.EncodeUint64(uint64(replicaId)))
+	// write my role
+	comm.NetWrite(simc, comm.EncodeUint64(1))
 
 	// initialization
 	proposals = make(map[int32]*pb.Proposal)
@@ -161,7 +167,18 @@ func ReplicaStateUpdateRoutine() {
 					request := <-requests[update.serial]
 					proposals[slot_in] = &pb.Proposal{SlotNumber: slot_in, Command: request}
 					ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-					_, err := update.c.Propose(ctx, &pb.Message{Type: PROPOSAL, SlotNumber: slot_in, Command: request})
+
+					// Proposal sent
+					tosend, err := proto.Marshal(&pb.Message{Type: PROPOSAL, SlotNumber: slot_in, Command: request, Send: true})
+					if err != nil {
+						log.Fatalf("marshal err:%v\n", err)
+					}
+					_, err = simc.Write(tosend)
+					if err != nil {
+						log.Fatalf("Write to simulator failed, err:%v\n", err)
+					}
+
+					_, err = update.c.Propose(ctx, &pb.Message{Type: PROPOSAL, SlotNumber: slot_in, Command: request})
 					if err != nil {
 						log.Printf("failed to propose: %v", err)
 						cancel()
