@@ -10,6 +10,7 @@ import (
 
 	pb "github.com/yizhuoliang/gopaxos"
 
+	// "github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -58,6 +59,12 @@ var (
 type replicaServer struct {
 	pb.UnimplementedClientReplicaServer
 }
+
+// type ReaderWriter interface {
+// 	Write(b []byte) (n int, err error)
+// 	Read(b []byte) (n int, err error)
+// 	Close() error
+// }
 
 type replicaStateUpdateRequest struct {
 	updateType   int

@@ -10,6 +10,7 @@ import (
 
 	pb "github.com/yizhuoliang/gopaxos"
 
+	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -48,11 +49,17 @@ var (
 
 	decisions []*pb.Decision
 
-	simc pb.NodeSimulatorClient
+	simc ReaderWriter
 )
 
 type leaderServer struct {
 	pb.UnimplementedReplicaLeaderServer
+}
+
+type ReaderWriter interface {
+	Write(b []byte) (n int, err error)
+	Read(b []byte) (n int, err error)
+	Close() error
 }
 
 // REQUEST TYPES:
@@ -74,14 +81,12 @@ func main() {
 	leaderId = int32(temp)
 
 	// connect sim
-	conn, err := grpc.Dial("127.0.0.1:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	simc, err := grpc.Dial("127.0.0.1:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("failed to connect to simulator: %v", err)
 		return
 	}
-	defer conn.Close()
-
-	simc = pb.NewNodeSimulatorClient(conn)
+	defer simc.Close()
 
 	// initialization
 	proposals = make(map[int32]*pb.Proposal)
@@ -282,9 +287,11 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 	defer cancel()
 
 	// P1A sent
-	simctx, simcancel := context.WithTimeout(context.Background(), time.Second)
-	defer simcancel()
-	_, err = simc.Sent(simctx, &pb.Message{Type: P1A, LeaderId: leaderId, BallotNumber: scoutBallotNumber, Send: true})
+	tosend, err := proto.Marshal(&pb.Message{Type: P1A, LeaderId: leaderId, BallotNumber: scoutBallotNumber, Send: true})
+	if err != nil {
+		log.Fatalf("marshal err:%v\n", err)
+	}
+	_, err = simc.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
 	}
@@ -297,9 +304,11 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 	}
 
 	// P1B received
-	simctx, simcancel = context.WithTimeout(context.Background(), time.Second)
-	defer simcancel()
-	_, err = simc.Received(simctx, r)
+	tosend, err = proto.Marshal(r)
+	if err != nil {
+		log.Fatalf("marshal err:%v\n", err)
+	}
+	_, err = simc.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
 	}
@@ -350,9 +359,11 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 	defer cancel()
 
 	// P2A sent
-	simctx, simcancel := context.WithTimeout(context.Background(), time.Second)
-	defer simcancel()
-	_, err = simc.Sent(simctx, &pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc, Send: true})
+	tosend, err := proto.Marshal(&pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc, Send: true})
+	if err != nil {
+		log.Fatalf("marshal err:%v\n", err)
+	}
+	_, err = simc.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
 	}
@@ -364,9 +375,11 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 	}
 
 	// P2B received
-	simctx, simcancel = context.WithTimeout(context.Background(), time.Second)
-	defer simcancel()
-	_, err = simc.Received(simctx, r)
+	tosend, err = proto.Marshal(r)
+	if err != nil {
+		log.Fatalf("marshal err:%v\n", err)
+	}
+	_, err = simc.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
 	}
@@ -378,9 +391,11 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
 	// Proposal received
-	simctx, simcancel := context.WithTimeout(context.Background(), time.Second)
-	defer simcancel()
-	_, err := simc.Received(simctx, in)
+	tosend, err := proto.Marshal(in)
+	if err != nil {
+		log.Fatalf("marshal err:%v\n", err)
+	}
+	_, err = simc.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
 	}
@@ -393,17 +408,21 @@ func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message
 func (s *leaderServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
 	// Collection received
-	simctx, simcancel := context.WithTimeout(context.Background(), time.Second)
-	defer simcancel()
-	_, err := simc.Received(simctx, in)
+	tosend, err := proto.Marshal(in)
+	if err != nil {
+		log.Fatalf("marshal err:%v\n", err)
+	}
+	_, err = simc.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
 	}
 
 	// Decisions sent
-	simctx, simcancel = context.WithTimeout(context.Background(), time.Second)
-	defer simcancel()
-	_, err = simc.Sent(simctx, &pb.Message{Type: DECISIONS, Decisions: decisions, Req: in, Send: true})
+	tosend, err = proto.Marshal(&pb.Message{Type: DECISIONS, Decisions: decisions, Req: in, Send: true})
+	if err != nil {
+		log.Fatalf("marshal err:%v\n", err)
+	}
+	_, err = simc.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
 	}

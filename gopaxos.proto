@@ -21,11 +21,6 @@ service LeaderAcceptor {
     rpc Commanding (Message) returns (Message) {}
 }
 
-service NodeSimulator {
-    rpc Sent (Message) returns (Message) {}
-    rpc Received (Message) returns (Message) {}
-}
-
 message Message {
     int32 type = 1;
 
