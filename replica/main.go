@@ -204,10 +204,10 @@ func CollectorRoutine(serial int) {
 			logOutput = false
 			continue
 		}
-		if r.Valid {
-			logOutput = true
-			replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 1, newDecisions: r.Decisions, serial: serial}
-		}
+
+		logOutput = true
+		replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 1, newDecisions: r.Decisions, serial: serial}
+
 	}
 }
 

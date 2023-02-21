@@ -336,7 +336,7 @@ func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message
 }
 
 func (s *leaderServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
-	return &pb.Message{Type: DECISIONS, Valid: true, Decisions: decisions, Send: true}, nil
+	return &pb.Message{Type: DECISIONS, Decisions: decisions, Send: true}, nil
 }
 
 func (s *leaderServer) Heartbeat(ctx context.Context, in *pb.Message) (*pb.Message, error) {
