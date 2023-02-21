@@ -47,6 +47,8 @@ var (
 	leaderStateUpdateChannel chan *leaderStateUpdateRequest
 
 	decisions []*pb.Decision
+
+	simc pb.NodeSimulatorClient
 )
 
 type leaderServer struct {
@@ -70,6 +72,16 @@ type leaderStateUpdateRequest struct {
 func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	leaderId = int32(temp)
+
+	// connect sim
+	conn, err := grpc.Dial("127.0.0.1:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("failed to connect to simulator: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	simc = pb.NewNodeSimulatorClient(conn)
 
 	// initialization
 	proposals = make(map[int32]*pb.Proposal)
@@ -269,12 +281,29 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	r, err := c.Scouting(ctx, &pb.Message{Type: P1A, LeaderId: leaderId, BallotNumber: scoutBallotNumber, Send: true})
+	// P1A sent
+	simctx, simcancel := context.WithTimeout(context.Background(), time.Second)
+	defer simcancel()
+	_, err = simc.Sent(simctx, &pb.Message{Type: P1A, LeaderId: leaderId, BallotNumber: scoutBallotNumber, Send: true})
+	if err != nil {
+		log.Fatalf("Write to simulator failed, err:%v\n", err)
+	}
+
+	r, err := c.Scouting(ctx, &pb.Message{Type: P1A, LeaderId: leaderId, BallotNumber: scoutBallotNumber})
 	if err != nil {
 		log.Printf("scouting failed: %v", err)
 		scoutCollectChannel <- &pb.P1B{AcceptorId: -1}
 		return
 	}
+
+	// P1B received
+	simctx, simcancel = context.WithTimeout(context.Background(), time.Second)
+	defer simcancel()
+	_, err = simc.Received(simctx, r)
+	if err != nil {
+		log.Fatalf("Write to simulator failed, err:%v\n", err)
+	}
+
 	scoutCollectChannel <- &pb.P1B{AcceptorId: r.AcceptorId, BallotNumber: r.BallotNumber, BallotLeader: r.BallotLeader, Accepted: r.Accepted}
 }
 
@@ -320,25 +349,68 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	r, err := c.Commanding(ctx, &pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc, Send: true})
+	// P2A sent
+	simctx, simcancel := context.WithTimeout(context.Background(), time.Second)
+	defer simcancel()
+	_, err = simc.Sent(simctx, &pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc, Send: true})
+	if err != nil {
+		log.Fatalf("Write to simulator failed, err:%v\n", err)
+	}
+
+	r, err := c.Commanding(ctx, &pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc})
 	if err != nil {
 		commanderCollectChannel <- &pb.P2B{AcceptorId: -1}
 		return
 	}
+
+	// P2B received
+	simctx, simcancel = context.WithTimeout(context.Background(), time.Second)
+	defer simcancel()
+	_, err = simc.Received(simctx, r)
+	if err != nil {
+		log.Fatalf("Write to simulator failed, err:%v\n", err)
+	}
+
 	commanderCollectChannel <- &pb.P2B{AcceptorId: r.AcceptorId, BallotNumber: r.BallotNumber, BallotLeader: r.BallotLeader}
 }
 
 // gRPC HANDLERS
 func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+
+	// Proposal received
+	simctx, simcancel := context.WithTimeout(context.Background(), time.Second)
+	defer simcancel()
+	_, err := simc.Received(simctx, in)
+	if err != nil {
+		log.Fatalf("Write to simulator failed, err:%v\n", err)
+	}
+
 	leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 1, newProposal: &pb.Proposal{SlotNumber: in.SlotNumber, Command: in.Command}} // Weird? Yes! Things can only be down after chekcing proposals
 	log.Printf("Received proposal with commandId %s and slot number %d", in.Command.CommandId, in.SlotNumber)
-	return &pb.Message{Type: EMPTY, Content: "success", Send: true}, nil
+	return &pb.Message{Type: EMPTY, Content: "success"}, nil
 }
 
 func (s *leaderServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
-	return &pb.Message{Type: DECISIONS, Decisions: decisions, Send: true}, nil
+
+	// Collection received
+	simctx, simcancel := context.WithTimeout(context.Background(), time.Second)
+	defer simcancel()
+	_, err := simc.Received(simctx, in)
+	if err != nil {
+		log.Fatalf("Write to simulator failed, err:%v\n", err)
+	}
+
+	// Decisions sent
+	simctx, simcancel = context.WithTimeout(context.Background(), time.Second)
+	defer simcancel()
+	_, err = simc.Sent(simctx, &pb.Message{Type: DECISIONS, Decisions: decisions, Req: in, Send: true})
+	if err != nil {
+		log.Fatalf("Write to simulator failed, err:%v\n", err)
+	}
+
+	return &pb.Message{Type: DECISIONS, Decisions: decisions}, nil
 }
 
 func (s *leaderServer) Heartbeat(ctx context.Context, in *pb.Message) (*pb.Message, error) {
-	return &pb.Message{Type: BEAT, Active: active, Send: true}, nil
+	return &pb.Message{Type: BEAT, Active: active}, nil
 }

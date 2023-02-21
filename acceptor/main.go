@@ -6,10 +6,12 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 
 	pb "github.com/yizhuoliang/gopaxos"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -35,6 +37,8 @@ var (
 	accepted     map[int32][]*pb.BSC
 
 	mutexChannel chan int32
+
+	simc pb.NodeSimulatorClient
 )
 
 type acceptorServer struct {
@@ -44,6 +48,16 @@ type acceptorServer struct {
 func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	acceptorId = int32(temp)
+
+	// connect sim
+	conn, err := grpc.Dial("127.0.0.1:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("failed to connect to simulator: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	simc = pb.NewNodeSimulatorClient(conn)
 
 	// initialization
 	accepted = make(map[int32][]*pb.BSC)
@@ -68,6 +82,15 @@ func serve(port string) {
 
 // gRPC handlers
 func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+
+	// P1A received
+	simctx, simcancel := context.WithTimeout(context.Background(), time.Second)
+	defer simcancel()
+	_, err := simc.Received(simctx, in)
+	if err != nil {
+		log.Fatalf("Write to simulator failed, err:%v\n", err)
+	}
+
 	<-mutexChannel
 	log.Printf("Scouting received")
 	if in.BallotNumber > ballotNumber || (in.BallotNumber == ballotNumber && in.LeaderId != ballotLeader) {
@@ -84,10 +107,28 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 	currentBallotLeader := ballotLeader
 	log.Printf("Scouting received, current states: ballot number %d, ballot leader %d", ballotNumber, ballotLeader)
 	mutexChannel <- 1
-	return &pb.Message{Type: P1B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: acceptedList, Send: true}, nil
+
+	// P1B sent
+	simctx, simcancel = context.WithTimeout(context.Background(), time.Second)
+	defer simcancel()
+	_, err = simc.Sent(simctx, &pb.Message{Type: P1B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: acceptedList, Req: in, Send: true})
+	if err != nil {
+		log.Fatalf("Write to simulator failed, err:%v\n", err)
+	}
+
+	return &pb.Message{Type: P1B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: acceptedList}, nil
 }
 
 func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+
+	// P2A received
+	simctx, simcancel := context.WithTimeout(context.Background(), time.Second)
+	defer simcancel()
+	_, err := simc.Received(simctx, in)
+	if err != nil {
+		log.Fatalf("Write to simulator failed, err:%v\n", err)
+	}
+
 	<-mutexChannel
 	ballotNumber := ballotNumber // concurrency concern, avoid ballot number update during execution
 	log.Printf("Commanding received")
@@ -99,5 +140,14 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Me
 	currentBallotNumber := ballotNumber
 	currentBallotLeader := ballotLeader
 	mutexChannel <- 1
-	return &pb.Message{Type: P2B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Send: true}, nil
+
+	// P2B sent
+	simctx, simcancel = context.WithTimeout(context.Background(), time.Second)
+	defer simcancel()
+	_, err = simc.Sent(simctx, &pb.Message{Type: P2B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Req: in, Send: true})
+	if err != nil {
+		log.Fatalf("Write to simulator failed, err:%v\n", err)
+	}
+
+	return &pb.Message{Type: P2B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader}, nil
 }

@@ -51,6 +51,8 @@ var (
 	slotInUpdateChannel       [leaderNum]chan int
 
 	mutexChannel chan int32
+
+	// simc pb.NodeSimulatorClient
 )
 
 type replicaServer struct {
@@ -67,6 +69,16 @@ type replicaStateUpdateRequest struct {
 func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	replicaId = int32(temp)
+
+	// // connect sim
+	// conn, err := grpc.Dial("127.0.0.1:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// if err != nil {
+	// 	log.Printf("failed to connect to simulator: %v", err)
+	// 	return
+	// }
+	// defer conn.Close()
+
+	// simc = pb.NewNodeSimulatorClient(conn)
 
 	// initialization
 	proposals = make(map[int32]*pb.Proposal)
