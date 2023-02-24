@@ -11,7 +11,7 @@ import (
 	pb "github.com/yizhuoliang/gopaxos"
 	"github.com/yizhuoliang/gopaxos/comm"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
