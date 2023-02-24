@@ -30,7 +30,7 @@ const (
 var (
 	server        *grpc.Server
 	acceptorId    int32 // also considered as the serial of this acceptor
-	acceptorPorts       = []string{"127.0.0.1:50057", "127.0.0.1:50058", "127.0.0.1:50059"}
+	acceptorPorts       = []string{"172.17.0.2:50050", "172.17.0.3:50050", "172.17.0.4:50050"}
 
 	ballotNumber int32 = -1
 	ballotLeader int32 = -1

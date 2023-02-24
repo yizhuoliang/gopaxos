@@ -37,7 +37,7 @@ const (
 var (
 	server       *grpc.Server
 	replicaId    int32
-	replicaPorts = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
+	replicaPorts = []string{"172.17.0.7:50050", "172.17.0.8:50050"}
 
 	state     string = ""
 	slot_in   int32  = 0
@@ -46,7 +46,7 @@ var (
 	proposals map[int32]*pb.Proposal
 	decisions map[int32]*pb.Decision
 
-	leaderPorts = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
+	leaderPorts = []string{"172.17.0.5:50050", "172.17.0.6:50050"}
 
 	replicaStateUpdateChannel chan *replicaStateUpdateRequest
 	notificationChannel       [leaderNum]chan int
