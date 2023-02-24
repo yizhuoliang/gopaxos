@@ -54,7 +54,7 @@ var (
 
 	mutexChannel chan int32
 
-	simc ReaderWriter
+	simc *comm.RPCConnection
 )
 
 type replicaServer struct {
@@ -79,19 +79,7 @@ func main() {
 	replicaId = int32(temp)
 
 	// connect sim
-	var err error
-	simc, err = net.Dial("tcp", "127.0.0.1:9090")
-	if err != nil {
-		log.Printf("failed to connect to simulator: %v", err)
-		return
-	}
-	defer simc.Close()
-
-	log.Printf("Connected to simulator, out=%v, in=%v\n", simc, simc)
-	// write my id
-	comm.NetWrite(simc, comm.EncodeUint64(uint64(replicaId)))
-	// write my role
-	comm.NetWrite(simc, comm.EncodeUint64(1))
+	simc = new(comm.RPCConnection).Init(uint64(replicaId+5), 1)
 
 	// initialization
 	proposals = make(map[int32]*pb.Proposal)
@@ -173,7 +161,7 @@ func ReplicaStateUpdateRoutine() {
 					if err != nil {
 						log.Fatalf("marshal err:%v\n", err)
 					}
-					_, err = simc.Write(tosend)
+					_, err = simc.OutConn.Write(tosend)
 					if err != nil {
 						log.Fatalf("Write to simulator failed, err:%v\n", err)
 					}

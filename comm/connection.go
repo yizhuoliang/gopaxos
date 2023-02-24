@@ -2,7 +2,6 @@ package comm
 
 import (
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -41,7 +40,7 @@ type RPCConnection struct {
 	InConn  ReaderWriter // [net.Conn|*os.File]
 }
 
-func (c *RPCConnection) Init(myId uint64, ids []uint64) *RPCConnection {
+func (c *RPCConnection) Init(myId uint64, myRole uint64) *RPCConnection {
 	mode := os.Getenv("SIMMODE")
 	if mode != "" {
 		switch mode {
@@ -101,14 +100,11 @@ func (c *RPCConnection) Init(myId uint64, ids []uint64) *RPCConnection {
 	}
 
 	fmt.Printf("Connected to simulator, out=%v, in=%v\n", c.OutConn, c.InConn)
-	marshalled_cluster_info, err := json.Marshal(ids)
 	PanicIfMarshalError(err)
 	// write my id
 	NetWrite(c.OutConn, EncodeUint64(myId))
-	// write cluster info length
-	NetWrite(c.OutConn, EncodeUint64(uint64(len(marshalled_cluster_info))))
-	// write cluster info
-	NetWrite(c.OutConn, marshalled_cluster_info)
+	// write my role
+	NetWrite(c.OutConn, EncodeUint64(myRole))
 
 	if MODE == SYNC {
 		c.mutex = &sync.RWMutex{}

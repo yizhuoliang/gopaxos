@@ -38,7 +38,7 @@ var (
 
 	mutexChannel chan int32
 
-	simc ReaderWriter
+	simc *comm.RPCConnection
 )
 
 type acceptorServer struct {
@@ -56,19 +56,7 @@ func main() {
 	acceptorId = int32(temp)
 
 	// connect sim
-	var err error
-	simc, err = net.Dial("tcp", "127.0.0.1:9090")
-	if err != nil {
-		log.Printf("failed to connect to simulator: %v", err)
-		return
-	}
-	defer simc.Close()
-
-	log.Printf("Connected to simulator, out=%v, in=%v\n", simc, simc)
-	// write my id
-	comm.NetWrite(simc, comm.EncodeUint64(uint64(acceptorId)))
-	// write cluster info length
-	comm.NetWrite(simc, comm.EncodeUint64(uint64(3)))
+	simc = new(comm.RPCConnection).Init(uint64(acceptorId), 3)
 
 	// initialization
 	accepted = make(map[int32][]*pb.BSC)
@@ -99,7 +87,7 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
 	}
-	_, err = simc.Write(tosend)
+	_, err = simc.OutConn.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
 	}
@@ -126,7 +114,7 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
 	}
-	_, err = simc.Write(tosend)
+	_, err = simc.OutConn.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
 	}
@@ -141,7 +129,7 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Me
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
 	}
-	_, err = simc.Write(tosend)
+	_, err = simc.OutConn.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
 	}
@@ -163,7 +151,7 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Me
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
 	}
-	_, err = simc.Write(tosend)
+	_, err = simc.OutConn.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
 	}
