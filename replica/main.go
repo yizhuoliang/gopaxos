@@ -124,7 +124,7 @@ func ReplicaStateUpdateRoutine() {
 			for _, decision := range update.newDecisions {
 				decisions[decision.SlotNumber] = decision
 				d, ok := decisions[slot_out]
-				if ok {
+				for ok {
 					p, ok := proposals[slot_out]
 					if ok {
 						delete(proposals, slot_out)
@@ -138,6 +138,7 @@ func ReplicaStateUpdateRoutine() {
 					slot_out++
 					// end atomic
 					log.Printf("Operation %s is performed, replica state: %s", decision.Command.Operation, state)
+					d, ok = decisions[slot_out]
 				}
 			}
 		} else if update.updateType == 2 {
