@@ -26,28 +26,30 @@ message Message {
 
     int32 clientId = 2;
     string commandId = 3;
-    string operation = 4;
-    Command command = 5;
-    bool valid = 6;
-    repeated Response responses = 7;
-    repeated Decision decisions = 8;
-    int32 ballotNumber = 9;
-    int32 ballotLeader = 10;
-    int32 slotNumber = 11;
-    int32 leaderId = 12;
-    int32 acceptorId = 13;
-    BSC bsc = 14;
-    repeated BSC accepted = 15;
-    bool active = 16;
-    string content = 17;
-    Message req = 18;
-    bool send = 19;
+    string key = 4;
+    string value = 5;
+    Command command = 6;
+    bool valid = 7;
+    repeated Response responses = 8;
+    repeated Decision decisions = 9;
+    int32 ballotNumber = 10;
+    int32 ballotLeader = 11;
+    int32 slotNumber = 12;
+    int32 leaderId = 13;
+    int32 acceptorId = 14;
+    BSC bsc = 15;
+    repeated BSC accepted = 16;
+    bool active = 17;
+    string content = 18;
+    Message req = 19;
+    bool send = 20;
 }
 
 message Command {
     int32 clientId = 1;
     string commandId = 2;
-    string operation = 3;
+    string key = 3;
+    string value = 4;
 }
 
 // should not send response to client until the command's slot is decided

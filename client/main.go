@@ -65,18 +65,22 @@ func main() {
 	var input string
 	IOBlockChannel = make(chan int, 1)
 	for {
-		fmt.Printf("Enter 'operate' or 'check' (^C to quit): ")
+		fmt.Printf("Enter 'store' or 'check' (^C to quit): ")
 		fmt.Scanf("%s", &input)
 
-		if input == "operate" {
-			fmt.Printf("Enter the operation you want to perform: ")
-			fmt.Scanf("%s", &input)
+		if input == "store" {
+			var key string
+			var value string
+			fmt.Printf("Enter the key you want to store: ")
+			fmt.Scanf("%s", &key)
+			fmt.Printf("Enter the value you want to store: ")
+			fmt.Scanf("%s", &value)
 			// generate a new commandID
 			commandCount += 1
 			cid := "client" + strconv.Itoa(int(clientId)) + "-" + strconv.Itoa(commandCount)
 			// push client commands to command buffers
 			for i := 0; i < replicaNum; i++ {
-				commandBuffers[i] <- &pb.Command{ClientId: clientId, CommandId: cid, Operation: input}
+				commandBuffers[i] <- &pb.Command{ClientId: clientId, CommandId: cid, Key: key, Value: value}
 			}
 		} else if input == "check" {
 			checkSignal <- 1
@@ -98,7 +102,7 @@ func MessengerRoutine(serial int) {
 	for {
 		command := <-commandBuffers[serial]
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		_, err = c.Request(ctx, &pb.Message{Type: COMMAND, CommandId: command.CommandId, ClientId: command.ClientId, Operation: command.Operation})
+		_, err = c.Request(ctx, &pb.Message{Type: COMMAND, CommandId: command.CommandId, ClientId: command.ClientId, Key: command.Key, Value: command.Value})
 		if err != nil {
 			log.Printf("failed to request: %v\n", err)
 			cancel()
@@ -136,7 +140,7 @@ func responseUpdateRoutine() {
 		r := <-responseUpdateChannel
 		responded = r
 		for _, response := range responded {
-			log.Printf("%s is responded: %s\n", response.Command.CommandId, response.Command.Operation)
+			log.Printf("%s is responded. key: %s, value: %s\n", response.Command.CommandId, response.Command.Key, response.Command.Value)
 		}
 		IOBlockChannel <- 1
 	}
