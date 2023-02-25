@@ -278,8 +278,7 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 
 	// P1A sent
 	m := pb.Message{Type: P1A, LeaderId: leaderId, BallotNumber: scoutBallotNumber, Send: true}
-	length := 16 + (uint64)(proto.Size(&m))
-	tosend, offset := simc.AllocateRequest(length)
+	tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
 	b, err := proto.Marshal(&m)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
@@ -298,8 +297,7 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 	}
 
 	// P1B received
-	length = 16 + (uint64)(proto.Size(r))
-	tosend, offset = simc.AllocateRequest(length)
+	tosend, offset = simc.AllocateRequest((uint64)(proto.Size(r)))
 	b, err = proto.Marshal(r)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
@@ -357,8 +355,7 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 
 	// P2A sent
 	m := pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc, Send: true}
-	length := 16 + (uint64)(proto.Size(&m))
-	tosend, offset := simc.AllocateRequest(length)
+	tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
 	b, err := proto.Marshal(&m)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
@@ -376,8 +373,7 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 	}
 
 	// P2B received
-	length = 16 + (uint64)(proto.Size(r))
-	tosend, offset = simc.AllocateRequest(length)
+	tosend, offset = simc.AllocateRequest((uint64)(proto.Size(r)))
 	b, err = proto.Marshal(r)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
@@ -395,8 +391,7 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
 	// Proposal received
-	length := 16 + (uint64)(proto.Size(in))
-	tosend, offset := simc.AllocateRequest(length)
+	tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
 	b, err := proto.Marshal(in)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
@@ -415,8 +410,7 @@ func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message
 func (s *leaderServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
 	// Collection received
-	length := 16 + (uint64)(proto.Size(in))
-	tosend, offset := simc.AllocateRequest(length)
+	tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
 	b, err := proto.Marshal(in)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
@@ -429,8 +423,7 @@ func (s *leaderServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message
 
 	// Decisions sent
 	m := pb.Message{Type: DECISIONS, Decisions: decisions, Req: in, Send: true}
-	length = 16 + (uint64)(proto.Size(&m))
-	tosend, offset = simc.AllocateRequest(length)
+	tosend, offset = simc.AllocateRequest((uint64)(proto.Size(&m)))
 	b, err = proto.Marshal(&m)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)

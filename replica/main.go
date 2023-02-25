@@ -152,8 +152,7 @@ func ReplicaStateUpdateRoutine() {
 
 					// Proposal sent
 					// m := pb.Message{Type: PROPOSAL, SlotNumber: slot_in, Command: request, Send: true}
-					// length := 16 + (uint64)(proto.Size(&m))
-					// tosend, offset := simc.AllocateRequest(length)
+					// tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
 					// b, err := proto.Marshal(&m)
 					// if err != nil {
 					// 	log.Fatalf("marshal err:%v\n", err)

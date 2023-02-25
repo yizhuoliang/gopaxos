@@ -77,8 +77,7 @@ func serve(port string) {
 func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
 	// P1A received
-	length := 16 + (uint64)(proto.Size(in))
-	tosend, offset := simc.AllocateRequest(length)
+	tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
 	b, err := proto.Marshal(in)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
@@ -108,8 +107,7 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 
 	// P1B sent
 	m := pb.Message{Type: P1B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: acceptedList, Req: in, Send: true}
-	length = 16 + (uint64)(proto.Size(&m))
-	tosend, offset = simc.AllocateRequest(length)
+	tosend, offset = simc.AllocateRequest((uint64)(proto.Size(&m)))
 	b, err = proto.Marshal(&m)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
@@ -126,8 +124,7 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
 	// P2A received
-	length := 16 + (uint64)(proto.Size(in))
-	tosend, offset := simc.AllocateRequest(length)
+	tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
 	b, err := proto.Marshal(in)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
@@ -152,8 +149,7 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Me
 
 	// P2B sent
 	m := pb.Message{Type: P2B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Req: in, Send: true}
-	length = 16 + (uint64)(proto.Size(&m))
-	tosend, offset = simc.AllocateRequest(length)
+	tosend, offset = simc.AllocateRequest((uint64)(proto.Size(&m)))
 	b, err = proto.Marshal(&m)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
