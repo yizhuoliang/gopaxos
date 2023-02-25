@@ -10,8 +10,8 @@ import (
 	pb "github.com/yizhuoliang/gopaxos"
 	"github.com/yizhuoliang/gopaxos/comm"
 
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -43,12 +43,6 @@ var (
 
 type acceptorServer struct {
 	pb.UnimplementedLeaderAcceptorServer
-}
-
-type ReaderWriter interface {
-	Write(b []byte) (n int, err error)
-	Read(b []byte) (n int, err error)
-	Close() error
 }
 
 func main() {
@@ -83,10 +77,13 @@ func serve(port string) {
 func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
 	// P1A received
-	tosend, err := proto.Marshal(in)
+	length := 16 + (uint64)(proto.Size(in))
+	tosend, offset := simc.AllocateRequest(length)
+	b, err := proto.Marshal(in)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
 	}
+	copy(tosend[offset:], b)
 	_, err = simc.OutConn.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
@@ -110,10 +107,14 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 	mutexChannel <- 1
 
 	// P1B sent
-	tosend, err = proto.Marshal(&pb.Message{Type: P1B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: acceptedList, Req: in, Send: true})
+	m := pb.Message{Type: P1B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: acceptedList, Req: in, Send: true}
+	length = 16 + (uint64)(proto.Size(&m))
+	tosend, offset = simc.AllocateRequest(length)
+	b, err = proto.Marshal(&m)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
 	}
+	copy(tosend[offset:], b)
 	_, err = simc.OutConn.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
@@ -125,10 +126,13 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
 	// P2A received
-	tosend, err := proto.Marshal(in)
+	length := 16 + (uint64)(proto.Size(in))
+	tosend, offset := simc.AllocateRequest(length)
+	b, err := proto.Marshal(in)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
 	}
+	copy(tosend[offset:], b)
 	_, err = simc.OutConn.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
@@ -147,10 +151,14 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Me
 	mutexChannel <- 1
 
 	// P2B sent
-	tosend, err = proto.Marshal(&pb.Message{Type: P2B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Req: in, Send: true})
+	m := pb.Message{Type: P2B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Req: in, Send: true}
+	length = 16 + (uint64)(proto.Size(&m))
+	tosend, offset = simc.AllocateRequest(length)
+	b, err = proto.Marshal(&m)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
 	}
+	copy(tosend[offset:], b)
 	_, err = simc.OutConn.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)

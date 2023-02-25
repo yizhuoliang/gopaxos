@@ -9,11 +9,11 @@ import (
 	"time"
 
 	pb "github.com/yizhuoliang/gopaxos"
-	"github.com/yizhuoliang/gopaxos/comm"
+	// "github.com/yizhuoliang/gopaxos/comm"
 
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	// "google.golang.org/protobuf/proto"
 )
 
 const (
@@ -54,17 +54,11 @@ var (
 
 	mutexChannel chan int32
 
-	simc *comm.RPCConnection
+	// simc *comm.RPCConnection
 )
 
 type replicaServer struct {
 	pb.UnimplementedClientReplicaServer
-}
-
-type ReaderWriter interface {
-	Write(b []byte) (n int, err error)
-	Read(b []byte) (n int, err error)
-	Close() error
 }
 
 type replicaStateUpdateRequest struct {
@@ -79,7 +73,7 @@ func main() {
 	replicaId = int32(temp)
 
 	// connect sim
-	simc = new(comm.RPCConnection).Init(uint64(replicaId+5), 1)
+	// simc = new(comm.RPCConnection).Init(uint64(replicaId+5), 1)
 
 	// initialization
 	proposals = make(map[int32]*pb.Proposal)
@@ -157,16 +151,20 @@ func ReplicaStateUpdateRoutine() {
 					ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 
 					// Proposal sent
-					tosend, err := proto.Marshal(&pb.Message{Type: PROPOSAL, SlotNumber: slot_in, Command: request, Send: true})
-					if err != nil {
-						log.Fatalf("marshal err:%v\n", err)
-					}
-					_, err = simc.OutConn.Write(tosend)
-					if err != nil {
-						log.Fatalf("Write to simulator failed, err:%v\n", err)
-					}
+					// m := pb.Message{Type: PROPOSAL, SlotNumber: slot_in, Command: request, Send: true}
+					// length := 16 + (uint64)(proto.Size(&m))
+					// tosend, offset := simc.AllocateRequest(length)
+					// b, err := proto.Marshal(&m)
+					// if err != nil {
+					// 	log.Fatalf("marshal err:%v\n", err)
+					// }
+					// copy(tosend[offset:], b)
+					// _, err = simc.OutConn.Write(tosend)
+					// if err != nil {
+					// 	log.Fatalf("Write to simulator failed, err:%v\n", err)
+					// }
 
-					_, err = update.c.Propose(ctx, &pb.Message{Type: PROPOSAL, SlotNumber: slot_in, Command: request})
+					_, err := update.c.Propose(ctx, &pb.Message{Type: PROPOSAL, SlotNumber: slot_in, Command: request})
 					if err != nil {
 						log.Printf("failed to propose: %v", err)
 						cancel()

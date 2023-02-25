@@ -11,9 +11,9 @@ import (
 	pb "github.com/yizhuoliang/gopaxos"
 	"github.com/yizhuoliang/gopaxos/comm"
 
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -55,12 +55,6 @@ var (
 
 type leaderServer struct {
 	pb.UnimplementedReplicaLeaderServer
-}
-
-type ReaderWriter interface {
-	Write(b []byte) (n int, err error)
-	Read(b []byte) (n int, err error)
-	Close() error
 }
 
 // REQUEST TYPES:
@@ -283,10 +277,14 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 	defer cancel()
 
 	// P1A sent
-	tosend, err := proto.Marshal(&pb.Message{Type: P1A, LeaderId: leaderId, BallotNumber: scoutBallotNumber, Send: true})
+	m := pb.Message{Type: P1A, LeaderId: leaderId, BallotNumber: scoutBallotNumber, Send: true}
+	length := 16 + (uint64)(proto.Size(&m))
+	tosend, offset := simc.AllocateRequest(length)
+	b, err := proto.Marshal(&m)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
 	}
+	copy(tosend[offset:], b)
 	_, err = simc.OutConn.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
@@ -300,10 +298,13 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 	}
 
 	// P1B received
-	tosend, err = proto.Marshal(r)
+	length = 16 + (uint64)(proto.Size(r))
+	tosend, offset = simc.AllocateRequest(length)
+	b, err = proto.Marshal(r)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
 	}
+	copy(tosend[offset:], b)
 	_, err = simc.OutConn.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
@@ -355,10 +356,14 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 	defer cancel()
 
 	// P2A sent
-	tosend, err := proto.Marshal(&pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc, Send: true})
+	m := pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc, Send: true}
+	length := 16 + (uint64)(proto.Size(&m))
+	tosend, offset := simc.AllocateRequest(length)
+	b, err := proto.Marshal(&m)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
 	}
+	copy(tosend[offset:], b)
 	_, err = simc.OutConn.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
@@ -371,10 +376,13 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 	}
 
 	// P2B received
-	tosend, err = proto.Marshal(r)
+	length = 16 + (uint64)(proto.Size(r))
+	tosend, offset = simc.AllocateRequest(length)
+	b, err = proto.Marshal(r)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
 	}
+	copy(tosend[offset:], b)
 	_, err = simc.OutConn.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
@@ -387,10 +395,13 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
 	// Proposal received
-	tosend, err := proto.Marshal(in)
+	length := 16 + (uint64)(proto.Size(in))
+	tosend, offset := simc.AllocateRequest(length)
+	b, err := proto.Marshal(in)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
 	}
+	copy(tosend[offset:], b)
 	_, err = simc.OutConn.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
@@ -404,20 +415,27 @@ func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message
 func (s *leaderServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
 	// Collection received
-	tosend, err := proto.Marshal(in)
+	length := 16 + (uint64)(proto.Size(in))
+	tosend, offset := simc.AllocateRequest(length)
+	b, err := proto.Marshal(in)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
 	}
+	copy(tosend[offset:], b)
 	_, err = simc.OutConn.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
 	}
 
 	// Decisions sent
-	tosend, err = proto.Marshal(&pb.Message{Type: DECISIONS, Decisions: decisions, Req: in, Send: true})
+	m := pb.Message{Type: DECISIONS, Decisions: decisions, Req: in, Send: true}
+	length = 16 + (uint64)(proto.Size(&m))
+	tosend, offset = simc.AllocateRequest(length)
+	b, err = proto.Marshal(&m)
 	if err != nil {
 		log.Fatalf("marshal err:%v\n", err)
 	}
+	copy(tosend[offset:], b)
 	_, err = simc.OutConn.Write(tosend)
 	if err != nil {
 		log.Fatalf("Write to simulator failed, err:%v\n", err)
