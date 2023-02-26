@@ -15,22 +15,27 @@ import (
 )
 
 const (
+	// Message types
 	COMMAND   = 1
-	RESPONSES = 2
-	PROPOSAL  = 3
-	DECISIONS = 4
-	BEAT      = 5
-	P1A       = 6
-	P1B       = 7
-	P2A       = 8
-	P2B       = 9
-	EMPTY     = 10
+	READ      = 2
+	RESPONSES = 3
+	PROPOSAL  = 4
+	DECISIONS = 5
+	BEAT      = 6
+	P1A       = 7
+	P1B       = 8
+	P2A       = 9
+	P2B       = 10
+	EMPTY     = 11
 )
 
 var (
-	server        *grpc.Server
-	acceptorId    int32 // also considered as the serial of this acceptor
-	acceptorPorts       = []string{"172.17.0.2:50050", "172.17.0.3:50050", "172.17.0.4:50050"}
+	server     *grpc.Server
+	acceptorId int32 // also considered as the serial of this acceptor
+	// acceptorPorts       = []string{"172.17.0.2:50050", "172.17.0.3:50050", "172.17.0.4:50050"}
+
+	// for no-sim test
+	acceptorPorts = []string{"127.0.0.1:50057", "127.0.0.1:50058", "127.0.0.1:50059"}
 
 	ballotNumber int32 = -1
 	ballotLeader int32 = -1

@@ -22,35 +22,43 @@ const (
 )
 
 const (
+	// Message types
 	COMMAND   = 1
-	RESPONSES = 2
-	PROPOSAL  = 3
-	DECISIONS = 4
-	BEAT      = 5
-	P1A       = 6
-	P1B       = 7
-	P2A       = 8
-	P2B       = 9
-	EMPTY     = 10
+	READ      = 2
+	RESPONSES = 3
+	PROPOSAL  = 4
+	DECISIONS = 5
+	BEAT      = 6
+	P1A       = 7
+	P1B       = 8
+	P2A       = 9
+	P2B       = 10
+	EMPTY     = 11
 )
 
 var (
-	server       *grpc.Server
-	replicaId    int32
-	replicaPorts = []string{"172.17.0.7:50050", "172.17.0.8:50050"}
+	server    *grpc.Server
+	replicaId int32
 
-	state     string = ""
-	slot_in   int32  = 0
-	slot_out  int32  = 0
+	// replicaPorts = []string{"172.17.0.7:50050", "172.17.0.8:50050"}
+	// leaderPorts = []string{"172.17.0.5:50050", "172.17.0.6:50050"}
+
+	// for no-sim tests
+	replicaPorts = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
+	leaderPorts  = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
+
+	slot_in   int32 = 0
+	slot_out  int32 = 0
 	requests  [leaderNum]chan *pb.Command
 	proposals map[int32]*pb.Proposal
 	decisions map[int32]*pb.Decision
 
-	leaderPorts = []string{"172.17.0.5:50050", "172.17.0.6:50050"}
-
 	replicaStateUpdateChannel chan *replicaStateUpdateRequest
 	notificationChannel       [leaderNum]chan int
 	slotInUpdateChannel       [leaderNum]chan int
+
+	// Yeah, this is the key-value map
+	keyValueLog map[string]string
 
 	mutexChannel chan int32
 
@@ -78,6 +86,7 @@ func main() {
 	// initialization
 	proposals = make(map[int32]*pb.Proposal)
 	decisions = make(map[int32]*pb.Decision)
+	keyValueLog = make(map[string]string)
 	replicaStateUpdateChannel = make(chan *replicaStateUpdateRequest, 1)
 	for i := 0; i < leaderNum; i++ {
 		requests[i] = make(chan *pb.Command, 1)
@@ -124,20 +133,20 @@ func ReplicaStateUpdateRoutine() {
 			for _, decision := range update.newDecisions {
 				decisions[decision.SlotNumber] = decision
 				d, ok := decisions[slot_out]
+				// PERFORM - UPDATING THE KEY_VALUE MAP
 				for ok {
-					p, ok := proposals[slot_out]
-					if ok {
+					p, okProp := proposals[slot_out]
+					if okProp {
 						delete(proposals, slot_out)
 						if d.Command.CommandId != p.Command.CommandId {
 							requests[update.serial] <- p.Command
 							notificationChannel[update.serial] <- 1
 						}
 					}
-					// atomic
-					state = state + decision.Command.Operation
+					// update log and update slot_out
+					keyValueLog[d.Command.Key] = d.Command.Value
 					slot_out++
-					// end atomic
-					log.Printf("Operation %s is performed, replica state: %s", decision.Command.Operation, state)
+					log.Printf("Log updated - key: %s, val: %s", d.Command.Key, d.Command.Value)
 					d, ok = decisions[slot_out]
 				}
 			}
@@ -237,10 +246,16 @@ func CollectorRoutine(serial int) {
 func (s *replicaServer) Request(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Printf("Request with command id %s received", in.CommandId)
 	for i := 0; i < leaderNum; i++ {
-		requests[i] <- &pb.Command{ClientId: in.ClientId, CommandId: in.CommandId, Operation: in.Operation}
+		requests[i] <- in.Command
 		notificationChannel[i] <- 1
 	}
 	return &pb.Message{Type: EMPTY, Content: "success"}, nil
+}
+
+// TODO: finish this
+func (s *replicaServer) Read(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+	log.Printf("Read request received, key: %s", in.Key)
+	return nil, nil
 }
 
 func (s *replicaServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
