@@ -12,7 +12,9 @@ import (
 	"github.com/yizhuoliang/gopaxos/comm"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -458,7 +460,12 @@ func (s *leaderServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message
 		}
 	}
 
-	return &pb.Message{Type: DECISIONS, Decisions: decisions}, nil
+	var returnErr error
+	if !active {
+		returnErr = status.Error(codes.FailedPrecondition, "inactive leader")
+	}
+
+	return &pb.Message{Type: DECISIONS, Decisions: decisions}, returnErr
 }
 
 func (s *leaderServer) Heartbeat(ctx context.Context, in *pb.Message) (*pb.Message, error) {

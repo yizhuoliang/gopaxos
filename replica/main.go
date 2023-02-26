@@ -49,12 +49,12 @@ var (
 
 	slot_in   int32 = 0
 	slot_out  int32 = 0
-	requests  [leaderNum]chan *pb.Command
+	requests  chan *pb.Command
 	proposals map[int32]*pb.Proposal
 	decisions map[int32]*pb.Decision
 
 	replicaStateUpdateChannel chan *replicaStateUpdateRequest
-	notificationChannel       [leaderNum]chan int
+	notificationChannel       [leaderNum]chan *pb.Message
 	slotInUpdateChannel       [leaderNum]chan int
 
 	// Yeah, this is the key-value map
@@ -72,8 +72,6 @@ type replicaServer struct {
 type replicaStateUpdateRequest struct {
 	updateType   int
 	newDecisions []*pb.Decision
-	serial       int
-	c            pb.ReplicaLeaderClient
 }
 
 func main() {
@@ -88,9 +86,9 @@ func main() {
 	decisions = make(map[int32]*pb.Decision)
 	keyValueLog = make(map[string]string)
 	replicaStateUpdateChannel = make(chan *replicaStateUpdateRequest, 1)
+	requests = make(chan *pb.Command, 1)
 	for i := 0; i < leaderNum; i++ {
-		requests[i] = make(chan *pb.Command, 1)
-		notificationChannel[i] = make(chan int, 1)
+		notificationChannel[i] = make(chan *pb.Message, 1)
 		slotInUpdateChannel[i] = make(chan int, 1)
 	}
 	mutexChannel = make(chan int32, 1)
@@ -139,8 +137,7 @@ func ReplicaStateUpdateRoutine() {
 					if okProp {
 						delete(proposals, slot_out)
 						if d.Command.CommandId != p.Command.CommandId {
-							requests[update.serial] <- p.Command
-							notificationChannel[update.serial] <- 1
+							requests <- p.Command
 						}
 					}
 					// update log and update slot_out
@@ -151,35 +148,18 @@ func ReplicaStateUpdateRoutine() {
 				}
 			}
 		} else if update.updateType == 2 {
-			log.Printf("messenger %d slot_in %d processing update type 2...", update.serial, slot_in)
+			log.Printf("processing new request...")
 			// reference sudo code propose()
 			if slot_in < slot_out+WINDOW {
 				_, ok := decisions[slot_in]
 				if !ok {
-					request := <-requests[update.serial]
+					request := <-requests
 					proposals[slot_in] = &pb.Proposal{SlotNumber: slot_in, Command: request}
-					ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-
-					// Proposal sent
-					// m := pb.Message{Type: PROPOSAL, SlotNumber: slot_in, Command: request, Send: true}
-					// tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
-					// b, err := proto.Marshal(&m)
-					// if err != nil {
-					// 	log.Fatalf("marshal err:%v\n", err)
-					// }
-					// copy(tosend[offset:], b)
-					// _, err = simc.OutConn.Write(tosend)
-					// if err != nil {
-					// 	log.Fatalf("Write to simulator failed, err:%v\n", err)
-					// }
-
-					_, err := update.c.Propose(ctx, &pb.Message{Type: PROPOSAL, SlotNumber: slot_in, Command: request})
-					if err != nil {
-						log.Printf("failed to propose: %v", err)
-						cancel()
+					msgTosend := &pb.Message{Type: PROPOSAL, SlotNumber: slot_in, Command: request}
+					for i := 0; i < leaderNum; i++ {
+						notificationChannel[i] <- msgTosend
 					}
 				}
-				slotInUpdateChannel[update.serial] <- 1
 			}
 		}
 		mutexChannel <- 1
@@ -207,8 +187,14 @@ func MessengerRoutine(serial int) {
 
 	c := pb.NewReplicaLeaderClient(conn)
 	for {
-		<-notificationChannel[serial]
-		replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil, serial: serial, c: c}
+		msgTosend := <-notificationChannel[serial]
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		_, err := c.Propose(ctx, msgTosend)
+		if err != nil {
+			log.Printf("failed to propose: %v", err)
+			cancel()
+		}
+		slotInUpdateChannel[serial] <- 1
 	}
 }
 
@@ -237,18 +223,15 @@ func CollectorRoutine(serial int) {
 		}
 
 		logOutput = true
-		replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 1, newDecisions: r.Decisions, serial: serial}
-
+		replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 1, newDecisions: r.Decisions}
 	}
 }
 
 // handlers
 func (s *replicaServer) Request(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Printf("Request with command id %s received", in.CommandId)
-	for i := 0; i < leaderNum; i++ {
-		requests[i] <- in.Command
-		notificationChannel[i] <- 1
-	}
+	requests <- in.Command
+	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
 	return &pb.Message{Type: EMPTY, Content: "success"}, nil
 }
 
