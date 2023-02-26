@@ -379,7 +379,7 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 		copy(tosend[offset:], b)
 		_, err = simc.OutConn.Write(tosend)
 		postmarshal := pb.Message{}
-		proto.Unmarshal(tosend, &postmarshal)
+		proto.Unmarshal(b, &postmarshal)
 		log.Printf("P2A post marshal: %v", &postmarshal)
 		if err != nil {
 			log.Fatalf("Write to simulator failed, err:%v\n", err)
