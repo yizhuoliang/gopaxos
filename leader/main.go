@@ -438,10 +438,14 @@ func (s *leaderServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message
 			log.Fatalf("marshal err:%v\n", err)
 		}
 		copy(tosend[offset:], b)
+		// debug
+		log.Print("here")
 		_, err = simc.OutConn.Write(tosend)
 		if err != nil {
 			log.Fatalf("Write to simulator failed, err:%v\n", err)
 		}
+		// debug
+		log.Print("here")
 	}
 
 	// Decisions sent
