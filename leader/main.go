@@ -383,7 +383,7 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 		}
 	}
 
-	r, err := c.Commanding(ctx, &pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc})
+	r, err := c.Commanding(ctx, &pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc, Send: false})
 	if err != nil {
 		commanderCollectChannel <- &pb.P2B{AcceptorId: -1}
 		return

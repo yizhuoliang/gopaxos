@@ -158,6 +158,7 @@ func CollectorRoutine(serial int) {
 		if err != nil {
 			log.Printf("failed to collect: %v", err)
 			cancel()
+			return
 		}
 		// print commandId of responded requests
 		if r.Valid {
