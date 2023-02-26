@@ -460,12 +460,11 @@ func (s *leaderServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message
 		}
 	}
 
-	var returnErr error
 	if !active {
-		returnErr = status.Error(codes.FailedPrecondition, "inactive leader")
+		return nil, status.Error(codes.FailedPrecondition, "inactive leader")
 	}
 
-	return &pb.Message{Type: DECISIONS, Decisions: decisions}, returnErr
+	return &pb.Message{Type: DECISIONS, Decisions: decisions}, nil
 }
 
 func (s *leaderServer) Heartbeat(ctx context.Context, in *pb.Message) (*pb.Message, error) {

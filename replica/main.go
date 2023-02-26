@@ -12,7 +12,9 @@ import (
 	// "github.com/yizhuoliang/gopaxos/comm"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	// "google.golang.org/protobuf/proto"
 )
 
@@ -138,6 +140,7 @@ func ReplicaStateUpdateRoutine() {
 						delete(proposals, slot_out)
 						if d.Command.CommandId != p.Command.CommandId {
 							requests <- p.Command
+							replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
 						}
 					}
 					// update log and update slot_out
@@ -238,7 +241,11 @@ func (s *replicaServer) Request(ctx context.Context, in *pb.Message) (*pb.Messag
 // TODO: finish this
 func (s *replicaServer) Read(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Printf("Read request received, key: %s", in.Key)
-	return nil, nil
+	value, ok := keyValueLog[in.Key]
+	if !ok {
+		return nil, status.Error(codes.NotFound, "KEY IS NOT IN LOG")
+	}
+	return &pb.Message{Valid: true, Value: value}, nil
 }
 
 func (s *replicaServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {

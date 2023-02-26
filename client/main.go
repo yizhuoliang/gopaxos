@@ -37,7 +37,7 @@ var (
 	clientId              int32
 	commandCount          = 0
 	replicaPorts          = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
-	commandBuffers        [replicaNum]chan *pb.Command
+	messageBuffers        [replicaNum]chan *pb.Message
 	responded             []*pb.Response
 	responseUpdateChannel chan []*pb.Response
 	IOBlockChannel        chan int // preserve input output order
@@ -51,7 +51,7 @@ func main() {
 
 	// initialize command channels for messenger routines
 	for i := 0; i < replicaNum; i++ {
-		commandBuffers[i] = make(chan *pb.Command, 1)
+		messageBuffers[i] = make(chan *pb.Message, 1)
 	}
 	responseUpdateChannel = make(chan []*pb.Response, 1)
 	checkSignal = make(chan int, 1)
@@ -67,7 +67,7 @@ func main() {
 	var input string
 	IOBlockChannel = make(chan int, 1)
 	for {
-		fmt.Printf("Enter 'store' or 'check' (^C to quit): ")
+		fmt.Printf("Enter 'store' or 'read' or 'check' (^C to quit): ")
 		fmt.Scanf("%s", &input)
 
 		if input == "store" {
@@ -82,7 +82,17 @@ func main() {
 			cid := "client" + strconv.Itoa(int(clientId)) + "-" + strconv.Itoa(commandCount)
 			// push client commands to command buffers
 			for i := 0; i < replicaNum; i++ {
-				commandBuffers[i] <- &pb.Command{ClientId: clientId, CommandId: cid, Key: key, Value: value}
+				messageBuffers[i] <- &pb.Message{Type: COMMAND, Command: &pb.Command{CommandId: cid, ClientId: clientId, Key: key, Value: value}, CommandId: cid, ClientId: clientId, Key: key, Value: value}
+			}
+		} else if input == "read" {
+			var key string
+			fmt.Printf("Enter the key you want to read: ")
+			fmt.Scanf("%s", &key)
+			for i := 0; i < replicaNum; i++ {
+				messageBuffers[i] <- &pb.Message{Type: READ, Key: key}
+			}
+			for i := 0; i < replicaNum; i++ {
+				<-IOBlockChannel
 			}
 		} else if input == "check" {
 			checkSignal <- 1
@@ -102,12 +112,24 @@ func MessengerRoutine(serial int) {
 	c := pb.NewClientReplicaClient(conn)
 
 	for {
-		command := <-commandBuffers[serial]
+		msg := <-messageBuffers[serial]
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		_, err = c.Request(ctx, &pb.Message{Type: COMMAND, Command: &pb.Command{CommandId: command.CommandId, ClientId: command.ClientId, Key: command.Key, Value: command.Value}, CommandId: command.CommandId, ClientId: command.ClientId, Key: command.Key, Value: command.Value})
-		if err != nil {
-			log.Printf("failed to request: %v\n", err)
-			cancel()
+		switch msg.Type {
+		case COMMAND:
+			_, err = c.Request(ctx, msg)
+			if err != nil {
+				log.Printf("failed to request: %v", err)
+				cancel()
+			}
+		case READ:
+			value, err := c.Read(ctx, msg)
+			if err != nil {
+				log.Printf("failed to read: %v", err)
+				cancel()
+			} else {
+				log.Printf("key: %s, value: %s", msg.Key, value)
+			}
+			IOBlockChannel <- 1
 		}
 	}
 }
