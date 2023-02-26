@@ -42,9 +42,6 @@ var (
 	server    *grpc.Server
 	replicaId int32
 
-	// replicaPorts = []string{"172.17.0.7:50050", "172.17.0.8:50050"}
-	// leaderPorts = []string{"172.17.0.5:50050", "172.17.0.6:50050"}
-
 	// for no-sim tests
 	replicaPorts = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
 	leaderPorts  = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
@@ -65,6 +62,7 @@ var (
 	mutexChannel chan int32
 
 	// simc *comm.RPCConnection
+	simon int // 1 = on, 0 = off
 )
 
 type replicaServer struct {
@@ -79,9 +77,14 @@ type replicaStateUpdateRequest struct {
 func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	replicaId = int32(temp)
+	simon, _ = strconv.Atoi(os.Args[2])
 
 	// connect sim
-	// simc = new(comm.RPCConnection).Init(uint64(replicaId+5), 1)
+	if simon == 1 {
+		// simc = new(comm.RPCConnection).Init(uint64(leaderId+5), 1)
+		replicaPorts = []string{"172.17.0.7:50050", "172.17.0.8:50050"}
+		leaderPorts = []string{"172.17.0.5:50050", "172.17.0.6:50050"}
+	}
 
 	// initialization
 	proposals = make(map[int32]*pb.Proposal)

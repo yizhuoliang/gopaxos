@@ -32,7 +32,6 @@ const (
 var (
 	server     *grpc.Server
 	acceptorId int32 // also considered as the serial of this acceptor
-	// acceptorPorts       = []string{"172.17.0.2:50050", "172.17.0.3:50050", "172.17.0.4:50050"}
 
 	// for no-sim test
 	acceptorPorts = []string{"127.0.0.1:50057", "127.0.0.1:50058", "127.0.0.1:50059"}
@@ -59,6 +58,7 @@ func main() {
 	// connect sim
 	if simon == 1 {
 		simc = new(comm.RPCConnection).Init(uint64(acceptorId), 3)
+		acceptorPorts = []string{"172.17.0.2:50050", "172.17.0.3:50050", "172.17.0.4:50050"}
 	}
 
 	// initialization

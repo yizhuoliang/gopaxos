@@ -42,12 +42,19 @@ var (
 	responseUpdateChannel chan []*pb.Response
 	IOBlockChannel        chan int // preserve input output order
 	checkSignal           chan int
+
+	simon int // 1 = on, 0 = off
 )
 
 func main() {
 	// input client id
 	temp, _ := strconv.Atoi(os.Args[1])
 	clientId = int32(temp)
+	simon, _ = strconv.Atoi(os.Args[2])
+
+	if simon == 1 {
+		replicaPorts = []string{"172.17.0.7:50050", "172.17.0.8:50050"}
+	}
 
 	// initialize command channels for messenger routines
 	for i := 0; i < replicaNum; i++ {
