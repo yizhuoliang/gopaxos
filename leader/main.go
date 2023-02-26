@@ -83,7 +83,7 @@ type leaderStateUpdateRequest struct {
 
 func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
-	leaderId = int32(temp + 3)
+	leaderId = int32(temp)
 	simon, _ = strconv.Atoi(os.Args[2])
 
 	// connect sim
