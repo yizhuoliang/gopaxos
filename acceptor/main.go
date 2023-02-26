@@ -15,6 +15,9 @@ import (
 )
 
 const (
+	acceptorNum = 3
+	leaderNum   = 2
+
 	// Message types
 	COMMAND   = 1
 	READ      = 2
@@ -27,6 +30,10 @@ const (
 	P2A       = 9
 	P2B       = 10
 	EMPTY     = 11
+
+	// Roles
+	LEADER   = 0
+	ACCEPTOR = 1
 )
 
 var (
@@ -57,7 +64,7 @@ func main() {
 
 	// connect sim
 	if simon == 1 {
-		simc = new(comm.RPCConnection).Init(uint64(acceptorId), 3)
+		simc = new(comm.RPCConnection).Init(uint64(acceptorId), ACCEPTOR)
 		acceptorPorts = []string{"172.17.0.2:50050", "172.17.0.3:50050", "172.17.0.4:50050"}
 	}
 

@@ -19,11 +19,11 @@ import (
 )
 
 const (
-	leaderNum = 2
-	WINDOW    = 5
-)
+	WINDOW = 5
 
-const (
+	acceptorNum = 3
+	leaderNum   = 2
+
 	// Message types
 	COMMAND   = 1
 	READ      = 2
@@ -36,6 +36,10 @@ const (
 	P2A       = 9
 	P2B       = 10
 	EMPTY     = 11
+
+	// Roles
+	LEADER   = 0
+	ACCEPTOR = 1
 )
 
 var (
@@ -81,7 +85,7 @@ func main() {
 
 	// connect sim
 	if simon == 1 {
-		// simc = new(comm.RPCConnection).Init(uint64(leaderId+5), 1)
+		// simc = new(comm.RPCConnection).Init(uint64(leaderId+5), )
 		replicaPorts = []string{"172.17.0.7:50050", "172.17.0.8:50050"}
 		leaderPorts = []string{"172.17.0.5:50050", "172.17.0.6:50050"}
 	}
