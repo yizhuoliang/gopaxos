@@ -431,7 +431,7 @@ func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message
 func (s *leaderServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
 	// Collection received
-	if simon == 1 {
+	if simon == 3 {
 		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
 		b, err := proto.Marshal(in)
 		if err != nil {
