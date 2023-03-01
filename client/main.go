@@ -34,14 +34,11 @@ const (
 )
 
 var (
-	clientId              int32
-	commandCount          = 0
-	replicaPorts          = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
-	messageBuffers        [replicaNum]chan *pb.Message
-	responded             []*pb.Response
-	responseUpdateChannel chan []*pb.Response
-	IOBlockChannel        chan int // preserve input output order
-	checkSignal           chan int
+	clientId       int32
+	commandCount   = 0
+	replicaPorts   = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
+	messageBuffers [replicaNum]chan *pb.Message
+	IOBlockChannel chan int // preserve input output order
 
 	simon int // 1 = on, 0 = off
 )
@@ -60,15 +57,11 @@ func main() {
 	for i := 0; i < replicaNum; i++ {
 		messageBuffers[i] = make(chan *pb.Message, 1)
 	}
-	responseUpdateChannel = make(chan []*pb.Response, 1)
-	checkSignal = make(chan int, 1)
 
 	// launch messenger and collector routines
 	for i := 0; i < replicaNum; i++ {
 		go MessengerRoutine(i)
-		go CollectorRoutine(i)
 	}
-	go responseUpdateRoutine()
 
 	// start handling user's operations
 	var input string
@@ -90,6 +83,7 @@ func main() {
 			// push client commands to command buffers
 			for i := 0; i < replicaNum; i++ {
 				messageBuffers[i] <- &pb.Message{Type: COMMAND, Command: &pb.Command{CommandId: cid, ClientId: clientId, Key: key, Value: value}, CommandId: cid, ClientId: clientId, Key: key, Value: value}
+				<-IOBlockChannel
 			}
 		} else if input == "read" {
 			var key string
@@ -97,83 +91,56 @@ func main() {
 			fmt.Scanf("%s", &key)
 			for i := 0; i < replicaNum; i++ {
 				messageBuffers[i] <- &pb.Message{Type: READ, Key: key}
-			}
-			for i := 0; i < replicaNum; i++ {
 				<-IOBlockChannel
 			}
 		} else if input == "check" {
-			checkSignal <- 1
-			<-IOBlockChannel
+			for i := 0; i < replicaNum; i++ {
+				messageBuffers[i] <- &pb.Message{Type: EMPTY, Content: "checking responses"}
+				<-IOBlockChannel
+			}
 		}
 	}
 }
 
 func MessengerRoutine(serial int) {
-	conn, err := grpc.Dial(replicaPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Printf("failed to connect: %v\n", err)
-		return
-	}
-	defer conn.Close()
-
-	c := pb.NewClientReplicaClient(conn)
-
 	for {
+		// reset connection for each message
 		msg := <-messageBuffers[serial]
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		switch msg.Type {
-		case COMMAND:
-			_, err = c.Request(ctx, msg)
-			if err != nil {
-				log.Printf("failed to request: %v", err)
-				cancel()
-			}
-		case READ:
-			value, err := c.Read(ctx, msg)
-			if err != nil {
-				log.Printf("failed to read: %v", err)
-				cancel()
-			} else {
-				log.Printf("key: %s, value: %s", msg.Key, value)
-			}
-			IOBlockChannel <- 1
-		}
-	}
-}
+		conn, err := grpc.Dial(replicaPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 
-func CollectorRoutine(serial int) {
-	conn, err := grpc.Dial(replicaPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Printf("failed to connect: %v\n", err)
-		return
-	}
-	defer conn.Close()
-
-	c := pb.NewClientReplicaClient(conn)
-
-	for {
-		<-checkSignal
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		r, err := c.Collect(ctx, &pb.Message{Type: EMPTY, Content: "checking responses\n"})
 		if err != nil {
-			log.Printf("failed to collect: %v", err)
-			cancel()
-			return
+			log.Printf("failed to connect: %v", err)
+		} else {
+			c := pb.NewClientReplicaClient(conn)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			switch msg.Type {
+			case COMMAND:
+				_, err := c.Request(ctx, msg)
+				if err != nil {
+					log.Printf("failed to request: %v", err)
+					cancel()
+				}
+			case READ:
+				r, err := c.Read(ctx, msg)
+				if err != nil || !r.Valid {
+					log.Printf("failed to read: %v", err)
+					cancel()
+				} else {
+					log.Printf("key: %s, value: %s", msg.Key, r.Value)
+				}
+			case EMPTY:
+				r, err := c.Collect(ctx, msg)
+				if err != nil || !r.Valid {
+					log.Printf("failed to collect: %v", err)
+					cancel()
+				} else {
+					for _, response := range r.Responses {
+						log.Printf("%s is responded. key: %s, value: %s", response.Command.CommandId, response.Command.Key, response.Command.Value)
+					}
+				}
+			}
 		}
-		// print commandId of responded requests
-		if r.Valid {
-			responseUpdateChannel <- r.Responses
-		}
-	}
-}
-
-func responseUpdateRoutine() {
-	for {
-		r := <-responseUpdateChannel
-		responded = r
-		for _, response := range responded {
-			log.Printf("%s is responded. key: %s, value: %s\n", response.Command.CommandId, response.Command.Key, response.Command.Value)
-		}
+		conn.Close()
 		IOBlockChannel <- 1
 	}
 }

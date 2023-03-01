@@ -15,9 +15,6 @@ import (
 )
 
 const (
-	acceptorNum = 3
-	leaderNum   = 2
-
 	// Message types
 	COMMAND   = 1
 	READ      = 2
