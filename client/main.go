@@ -22,15 +22,16 @@ const (
 	// Message types
 	COMMAND   = 1
 	READ      = 2
-	RESPONSES = 3
-	PROPOSAL  = 4
-	DECISIONS = 5
-	BEAT      = 6
-	P1A       = 7
-	P1B       = 8
-	P2A       = 9
-	P2B       = 10
-	EMPTY     = 11
+	WRITE     = 3
+	RESPONSES = 4
+	PROPOSAL  = 5
+	DECISIONS = 6
+	BEAT      = 7
+	P1A       = 8
+	P1B       = 9
+	P2A       = 10
+	P2B       = 11
+	EMPTY     = 12
 )
 
 var (
@@ -79,18 +80,21 @@ func main() {
 			fmt.Scanf("%s", &value)
 			// generate a new commandID
 			commandCount += 1
-			cid := "client" + strconv.Itoa(int(clientId)) + "-" + strconv.Itoa(commandCount)
+			cid := "client" + strconv.Itoa(int(clientId)) + "-W" + strconv.Itoa(commandCount)
 			// push client commands to command buffers
 			for i := 0; i < replicaNum; i++ {
-				messageBuffers[i] <- &pb.Message{Type: COMMAND, Command: &pb.Command{CommandId: cid, ClientId: clientId, Key: key, Value: value}, CommandId: cid, ClientId: clientId, Key: key, Value: value}
+				messageBuffers[i] <- &pb.Message{Type: COMMAND, Command: &pb.Command{Type: WRITE, CommandId: cid, ClientId: clientId, Key: key, Value: value}, CommandId: cid, ClientId: clientId, Key: key, Value: value}
 				<-IOBlockChannel
 			}
 		} else if input == "read" {
 			var key string
 			fmt.Printf("Enter the key you want to read: ")
 			fmt.Scanf("%s", &key)
+			// generate a new commandID
+			commandCount += 1
+			cid := "client" + strconv.Itoa(int(clientId)) + "-R" + strconv.Itoa(commandCount)
 			for i := 0; i < replicaNum; i++ {
-				messageBuffers[i] <- &pb.Message{Type: READ, Key: key}
+				messageBuffers[i] <- &pb.Message{Type: READ, Command: &pb.Command{Type: WRITE, CommandId: cid, ClientId: clientId, Key: key}}
 				<-IOBlockChannel
 			}
 		} else if input == "check" {
