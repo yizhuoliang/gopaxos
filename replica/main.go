@@ -143,9 +143,7 @@ func ReplicaStateUpdateRoutine() {
 					if okProp {
 						delete(proposals, slot_out)
 						if d.Command.CommandId != p.Command.CommandId {
-							// TODO: possible deadlock
-							requests <- p.Command
-							replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
+							go RetryRequestRoutine(p.Command, &replicaStateUpdateRequest{updateType: 2})
 						}
 					}
 					switch d.Command.Type {
@@ -240,6 +238,12 @@ func CollectorRoutine(serial int) {
 		logOutput = true
 		replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 1, newDecisions: r.Decisions}
 	}
+}
+
+// when a proposed command's slot is decided for another proposal, we need to find a new slot for this command
+func RetryRequestRoutine(command *pb.Command, update *replicaStateUpdateRequest) {
+	requests <- command
+	replicaStateUpdateChannel <- update
 }
 
 // handlers
