@@ -64,7 +64,7 @@ func main() {
 
 	// start handling user's operations
 	var input string
-	IOBlockChannel = make(chan int, 1)
+	IOBlockChannel = make(chan int, replicaNum)
 	for {
 		fmt.Printf("Enter 'store' or 'read' or 'check' (^C to quit): ")
 		fmt.Scanf("%s", &input)
@@ -82,6 +82,8 @@ func main() {
 			// push client commands to command buffers
 			for i := 0; i < replicaNum; i++ {
 				messageBuffers[i] <- &pb.Message{Type: WRITE, Command: &pb.Command{Type: WRITE, CommandId: cid, ClientId: clientId, Key: key, Value: value}, CommandId: cid, ClientId: clientId, Key: key, Value: value}
+			}
+			for i := 0; i < replicaNum; i++ {
 				<-IOBlockChannel
 			}
 		} else if input == "read" {
@@ -93,11 +95,15 @@ func main() {
 			cid := "client" + strconv.Itoa(int(clientId)) + "-R" + strconv.Itoa(commandCount)
 			for i := 0; i < replicaNum; i++ {
 				messageBuffers[i] <- &pb.Message{Type: READ, Command: &pb.Command{Type: READ, CommandId: cid, ClientId: clientId, Key: key}}
+			}
+			for i := 0; i < replicaNum; i++ {
 				<-IOBlockChannel
 			}
 		} else if input == "check" {
 			for i := 0; i < replicaNum; i++ {
 				messageBuffers[i] <- &pb.Message{Type: EMPTY, Content: "checking responses"}
+			}
+			for i := 0; i < replicaNum; i++ {
 				<-IOBlockChannel
 			}
 		}

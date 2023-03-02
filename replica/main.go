@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -144,6 +143,7 @@ func ReplicaStateUpdateRoutine() {
 					if okProp {
 						delete(proposals, slot_out)
 						if d.Command.CommandId != p.Command.CommandId {
+							// TODO: possible deadlock
 							requests <- p.Command
 							replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
 						}
@@ -157,11 +157,16 @@ func ReplicaStateUpdateRoutine() {
 						d, ok = decisions[slot_out]
 					case READ:
 						// reply to clients
-						// for debug
-						// fmt.Printf("1: %s\n", keyValueLog[d.Command.Key])
-						fmt.Printf("1\n")
 						// TODO: mark this read request as completed
-						readReplyMap[d.Command.CommandId] <- keyValueLog[d.Command.Key]
+						replyChan, chanOk := readReplyMap[d.Command.CommandId]
+						val, valOk := keyValueLog[d.Command.Key]
+						if chanOk {
+							if valOk {
+								replyChan <- val
+							} else {
+								replyChan <- "ERROR: key is not in log"
+							}
+						}
 						slot_out++
 						d, ok = decisions[slot_out]
 					}
@@ -251,8 +256,6 @@ func (s *replicaServer) Read(ctx context.Context, in *pb.Message) (*pb.Message, 
 	requests <- in.Command
 	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
 	value := <-readReplyMap[in.Command.CommandId]
-	// for debug
-	fmt.Printf("2\n")
 	delete(readReplyMap, in.Command.CommandId)
 	return &pb.Message{Type: EMPTY, Content: value}, nil
 }

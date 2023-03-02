@@ -96,6 +96,7 @@ func main() {
 
 	// initialization
 	proposals = make(map[int32]*pb.Proposal)
+	decisions = make([]*pb.Decision, 0)
 	leaderStateUpdateChannel = make(chan *leaderStateUpdateRequest, 1)
 
 	go leaderStateUpdateRoutine()
