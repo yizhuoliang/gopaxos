@@ -105,12 +105,13 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 
 	<-mutexChannel
 	log.Printf("Scouting received")
+	oldBallotNumber := ballotNumber
 	if in.BallotNumber > ballotNumber || (in.BallotNumber == ballotNumber && in.LeaderId != ballotLeader) {
 		ballotNumber = in.BallotNumber
 		ballotLeader = in.LeaderId
 	}
 	var acceptedList []*pb.BSC
-	for i := 1; i < int(ballotNumber); i++ {
+	for i := 0; i <= int(oldBallotNumber); i++ {
 		if bscs, ok := accepted[int32(i)]; ok {
 			acceptedList = append(acceptedList, bscs...)
 		}
