@@ -66,8 +66,6 @@ var (
 	// this is for replying
 	readReplyMap map[string]chan string
 
-	mutexChannel chan int32
-
 	// simc *comm.RPCConnection
 	simon int // 1 = on, 0 = off
 )
@@ -104,12 +102,9 @@ func main() {
 		notificationChannel[i] = make(chan *pb.Message, 1)
 		slotInUpdateChannel[i] = make(chan int, 1)
 	}
-	mutexChannel = make(chan int32, 1)
-	mutexChannel <- 1
 
 	// go!
 	go ReplicaStateUpdateRoutine()
-	go SlotInUpdateRoutine()
 	for i := 0; i < leaderNum; i++ {
 		go MessengerRoutine(i)
 		go CollectorRoutine(i)
@@ -136,7 +131,6 @@ func serve(port string) {
 func ReplicaStateUpdateRoutine() {
 	for {
 		update := <-replicaStateUpdateChannel
-		<-mutexChannel
 		if update.updateType == 1 {
 			// RECEIVE DECISION + PERFORM
 			// log.Printf("messenger %d slot_out %d processing update type 1...", update.serial, slot_out)
@@ -163,7 +157,9 @@ func ReplicaStateUpdateRoutine() {
 						d, ok = decisions[slot_out]
 					case READ:
 						// reply to clients
-						fmt.Printf("read decision received\n")
+						// for debug
+						fmt.Printf("1: %s\n", keyValueLog[d.Command.Key])
+						// TODO: mark this read request as completed
 						readReplyMap[d.Command.CommandId] <- keyValueLog[d.Command.Key]
 						slot_out++
 						d, ok = decisions[slot_out]
@@ -183,42 +179,31 @@ func ReplicaStateUpdateRoutine() {
 					for i := 0; i < leaderNum; i++ {
 						notificationChannel[i] <- msgTosend
 					}
+					slot_in++
 				}
 			}
 		}
-		mutexChannel <- 1
-	}
-}
-
-func SlotInUpdateRoutine() {
-	for {
-		log.Print("updating slot_in...")
-		for i := 0; i < leaderNum; i++ {
-			<-slotInUpdateChannel[i]
-		}
-		slot_in++
-		log.Print("slot_in updated successfully")
 	}
 }
 
 func MessengerRoutine(serial int) {
-	conn, err := grpc.Dial(leaderPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Printf("failed to connect: %v", err)
-		return
-	}
-	defer conn.Close()
-
-	c := pb.NewReplicaLeaderClient(conn)
 	for {
+		// reset connection for each message
 		msgTosend := <-notificationChannel[serial]
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		_, err := c.Propose(ctx, msgTosend)
+		conn, err := grpc.Dial(leaderPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
+
 		if err != nil {
-			log.Printf("failed to propose: %v", err)
-			cancel()
+			log.Printf("failed to connect: %v", err)
+		} else {
+			c := pb.NewReplicaLeaderClient(conn)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			_, err := c.Propose(ctx, msgTosend)
+			if err != nil {
+				log.Printf("failed to propose: %v", err)
+				cancel()
+			}
 		}
-		slotInUpdateChannel[serial] <- 1
+		conn.Close()
 	}
 }
 
@@ -261,10 +246,12 @@ func (s *replicaServer) Write(ctx context.Context, in *pb.Message) (*pb.Message,
 
 func (s *replicaServer) Read(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Printf("Read command received, key: %s", in.Command.Key)
-	readReplyMap[in.Command.CommandId] = make(chan string)
+	readReplyMap[in.Command.CommandId] = make(chan string, 1)
 	requests <- in.Command
 	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
 	value := <-readReplyMap[in.Command.CommandId]
+	// for debug
+	fmt.Printf("2\n")
 	delete(readReplyMap, in.Command.CommandId)
 	return &pb.Message{Type: EMPTY, Content: value}, nil
 }
@@ -272,13 +259,11 @@ func (s *replicaServer) Read(ctx context.Context, in *pb.Message) (*pb.Message, 
 func (s *replicaServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	var responseList []*pb.Response
 	var i int32 = 0
-	<-mutexChannel
 	_, ok := decisions[i]
 	for ok { // concurrent access (fatal)
 		responseList = append(responseList, &pb.Response{Command: decisions[i].Command})
 		i++
 		_, ok = decisions[i]
 	}
-	mutexChannel <- 1
 	return &pb.Message{Type: RESPONSES, Responses: responseList}, nil
 }
