@@ -14,15 +14,16 @@ const (
 	// Message types
 	COMMAND   = 1
 	READ      = 2
-	RESPONSES = 3
-	PROPOSAL  = 4
-	DECISIONS = 5
-	BEAT      = 6
-	P1A       = 7
-	P1B       = 8
-	P2A       = 9
-	P2B       = 10
-	EMPTY     = 11
+	WRITE     = 3
+	RESPONSES = 4
+	PROPOSAL  = 5
+	DECISIONS = 6
+	BEAT      = 7
+	P1A       = 8
+	P1B       = 9
+	P2A       = 10
+	P2B       = 11
+	EMPTY     = 12
 
 	// Roles
 	LEADER   = 0
