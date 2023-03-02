@@ -16,9 +16,7 @@ import (
 
 const (
 	replicaNum = 2
-)
 
-const (
 	// Message types
 	COMMAND   = 1
 	READ      = 2
