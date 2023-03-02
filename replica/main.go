@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -162,6 +163,7 @@ func ReplicaStateUpdateRoutine() {
 						d, ok = decisions[slot_out]
 					case READ:
 						// reply to clients
+						fmt.Printf("read decision received\n")
 						readReplyMap[d.Command.CommandId] <- keyValueLog[d.Command.Key]
 						slot_out++
 						d, ok = decisions[slot_out]
@@ -258,7 +260,7 @@ func (s *replicaServer) Write(ctx context.Context, in *pb.Message) (*pb.Message,
 }
 
 func (s *replicaServer) Read(ctx context.Context, in *pb.Message) (*pb.Message, error) {
-	log.Printf("Read command received, key: %s", in.Key)
+	log.Printf("Read command received, key: %s", in.Command.Key)
 	readReplyMap[in.Command.CommandId] = make(chan string)
 	requests <- in.Command
 	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
@@ -278,5 +280,5 @@ func (s *replicaServer) Collect(ctx context.Context, in *pb.Message) (*pb.Messag
 		_, ok = decisions[i]
 	}
 	mutexChannel <- 1
-	return &pb.Message{Type: RESPONSES, Valid: true, Responses: responseList}, nil
+	return &pb.Message{Type: RESPONSES, Responses: responseList}, nil
 }

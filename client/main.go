@@ -124,7 +124,7 @@ func MessengerRoutine(serial int) {
 				}
 			case READ:
 				r, err := c.Read(ctx, msg)
-				if err != nil || !r.Valid {
+				if err != nil {
 					log.Printf("failed to read: %v", err)
 					cancel()
 				} else {
@@ -132,7 +132,7 @@ func MessengerRoutine(serial int) {
 				}
 			case EMPTY:
 				r, err := c.Collect(ctx, msg)
-				if err != nil || !r.Valid {
+				if err != nil {
 					log.Printf("failed to collect: %v", err)
 					cancel()
 				} else {
