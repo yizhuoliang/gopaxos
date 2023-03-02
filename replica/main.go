@@ -12,9 +12,7 @@ import (
 	// "github.com/yizhuoliang/gopaxos/comm"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	// "google.golang.org/protobuf/proto"
 )
 
@@ -64,6 +62,9 @@ var (
 	// Yeah, this is the key-value map
 	keyValueLog map[string]string
 
+	// this is for replying
+	readReplyMap map[string]chan string
+
 	mutexChannel chan int32
 
 	// simc *comm.RPCConnection
@@ -95,6 +96,7 @@ func main() {
 	proposals = make(map[int32]*pb.Proposal)
 	decisions = make(map[int32]*pb.Decision)
 	keyValueLog = make(map[string]string)
+	readReplyMap = make(map[string]chan string)
 	replicaStateUpdateChannel = make(chan *replicaStateUpdateRequest, 1)
 	requests = make(chan *pb.Command, 1)
 	for i := 0; i < leaderNum; i++ {
@@ -151,14 +153,23 @@ func ReplicaStateUpdateRoutine() {
 							replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
 						}
 					}
-					// update log and update slot_out
-					keyValueLog[d.Command.Key] = d.Command.Value
-					slot_out++
-					log.Printf("Log updated - key: %s, val: %s", d.Command.Key, d.Command.Value)
-					d, ok = decisions[slot_out]
+					switch d.Command.Type {
+					case WRITE:
+						// update log and update slot_out
+						keyValueLog[d.Command.Key] = d.Command.Value
+						slot_out++
+						log.Printf("Log updated - key: %s, val: %s", d.Command.Key, d.Command.Value)
+						d, ok = decisions[slot_out]
+					case READ:
+						// reply to clients
+						readReplyMap[d.Command.CommandId] <- keyValueLog[d.Command.Key]
+						slot_out++
+						d, ok = decisions[slot_out]
+					}
 				}
 			}
 		} else if update.updateType == 2 {
+			// PROPOSE NEW COMMAND
 			log.Printf("processing new request...")
 			// reference sudo code propose()
 			if slot_in < slot_out+WINDOW {
@@ -239,21 +250,21 @@ func CollectorRoutine(serial int) {
 }
 
 // handlers
-func (s *replicaServer) Request(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+func (s *replicaServer) Write(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Printf("Request with command id %s received", in.CommandId)
 	requests <- in.Command
 	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
 	return &pb.Message{Type: EMPTY, Content: "success"}, nil
 }
 
-// TODO: finish this
 func (s *replicaServer) Read(ctx context.Context, in *pb.Message) (*pb.Message, error) {
-	log.Printf("Read request received, key: %s", in.Key)
-	value, ok := keyValueLog[in.Key]
-	if !ok {
-		return nil, status.Error(codes.NotFound, "KEY IS NOT IN LOG")
-	}
-	return &pb.Message{Valid: true, Value: value}, nil
+	log.Printf("Read command received, key: %s", in.Key)
+	readReplyMap[in.Command.CommandId] = make(chan string)
+	requests <- in.Command
+	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
+	value := <-readReplyMap[in.Command.CommandId]
+	delete(readReplyMap, in.Command.CommandId)
+	return &pb.Message{Type: EMPTY, Content: value}, nil
 }
 
 func (s *replicaServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {

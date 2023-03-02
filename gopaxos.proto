@@ -6,7 +6,7 @@ option go_package = "./";
 
 // the service replicas provide to clients
 service ClientReplica {
-    rpc Request (Message) returns (Message) {}
+    rpc Write (Message) returns (Message) {}
     rpc Read (Message) returns (Message) {}
     rpc Collect (Message) returns (Message) {}
 }

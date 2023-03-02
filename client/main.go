@@ -81,7 +81,7 @@ func main() {
 			cid := "client" + strconv.Itoa(int(clientId)) + "-W" + strconv.Itoa(commandCount)
 			// push client commands to command buffers
 			for i := 0; i < replicaNum; i++ {
-				messageBuffers[i] <- &pb.Message{Type: COMMAND, Command: &pb.Command{Type: WRITE, CommandId: cid, ClientId: clientId, Key: key, Value: value}, CommandId: cid, ClientId: clientId, Key: key, Value: value}
+				messageBuffers[i] <- &pb.Message{Type: WRITE, Command: &pb.Command{Type: WRITE, CommandId: cid, ClientId: clientId, Key: key, Value: value}, CommandId: cid, ClientId: clientId, Key: key, Value: value}
 				<-IOBlockChannel
 			}
 		} else if input == "read" {
@@ -92,7 +92,7 @@ func main() {
 			commandCount += 1
 			cid := "client" + strconv.Itoa(int(clientId)) + "-R" + strconv.Itoa(commandCount)
 			for i := 0; i < replicaNum; i++ {
-				messageBuffers[i] <- &pb.Message{Type: READ, Command: &pb.Command{Type: WRITE, CommandId: cid, ClientId: clientId, Key: key}}
+				messageBuffers[i] <- &pb.Message{Type: READ, Command: &pb.Command{Type: READ, CommandId: cid, ClientId: clientId, Key: key}}
 				<-IOBlockChannel
 			}
 		} else if input == "check" {
@@ -116,8 +116,8 @@ func MessengerRoutine(serial int) {
 			c := pb.NewClientReplicaClient(conn)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 			switch msg.Type {
-			case COMMAND:
-				_, err := c.Request(ctx, msg)
+			case WRITE:
+				_, err := c.Write(ctx, msg)
 				if err != nil {
 					log.Printf("failed to request: %v", err)
 					cancel()

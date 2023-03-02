@@ -22,7 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ClientReplicaClient interface {
-	Request(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error)
+	Write(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error)
 	Read(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error)
 	Collect(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error)
 }
@@ -35,9 +35,9 @@ func NewClientReplicaClient(cc grpc.ClientConnInterface) ClientReplicaClient {
 	return &clientReplicaClient{cc}
 }
 
-func (c *clientReplicaClient) Request(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error) {
+func (c *clientReplicaClient) Write(ctx context.Context, in *Message, opts ...grpc.CallOption) (*Message, error) {
 	out := new(Message)
-	err := c.cc.Invoke(ctx, "/gopaxos.ClientReplica/Request", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/gopaxos.ClientReplica/Write", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (c *clientReplicaClient) Collect(ctx context.Context, in *Message, opts ...
 // All implementations must embed UnimplementedClientReplicaServer
 // for forward compatibility
 type ClientReplicaServer interface {
-	Request(context.Context, *Message) (*Message, error)
+	Write(context.Context, *Message) (*Message, error)
 	Read(context.Context, *Message) (*Message, error)
 	Collect(context.Context, *Message) (*Message, error)
 	mustEmbedUnimplementedClientReplicaServer()
@@ -76,8 +76,8 @@ type ClientReplicaServer interface {
 type UnimplementedClientReplicaServer struct {
 }
 
-func (UnimplementedClientReplicaServer) Request(context.Context, *Message) (*Message, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Request not implemented")
+func (UnimplementedClientReplicaServer) Write(context.Context, *Message) (*Message, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Write not implemented")
 }
 func (UnimplementedClientReplicaServer) Read(context.Context, *Message) (*Message, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Read not implemented")
@@ -98,20 +98,20 @@ func RegisterClientReplicaServer(s grpc.ServiceRegistrar, srv ClientReplicaServe
 	s.RegisterService(&ClientReplica_ServiceDesc, srv)
 }
 
-func _ClientReplica_Request_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ClientReplica_Write_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Message)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ClientReplicaServer).Request(ctx, in)
+		return srv.(ClientReplicaServer).Write(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/gopaxos.ClientReplica/Request",
+		FullMethod: "/gopaxos.ClientReplica/Write",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ClientReplicaServer).Request(ctx, req.(*Message))
+		return srv.(ClientReplicaServer).Write(ctx, req.(*Message))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -160,8 +160,8 @@ var ClientReplica_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ClientReplicaServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Request",
-			Handler:    _ClientReplica_Request_Handler,
+			MethodName: "Write",
+			Handler:    _ClientReplica_Write_Handler,
 		},
 		{
 			MethodName: "Read",
