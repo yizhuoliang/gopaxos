@@ -128,7 +128,7 @@ func MessengerRoutine(serial int) {
 					log.Printf("failed to read: %v", err)
 					cancel()
 				} else {
-					log.Printf("key: %s, value: %s", msg.Key, r.Value)
+					log.Printf("key: %s, value: %s", msg.Command.Key, r.Content)
 				}
 			case EMPTY:
 				r, err := c.Collect(ctx, msg)

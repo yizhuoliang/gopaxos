@@ -158,7 +158,8 @@ func ReplicaStateUpdateRoutine() {
 					case READ:
 						// reply to clients
 						// for debug
-						fmt.Printf("1: %s\n", keyValueLog[d.Command.Key])
+						// fmt.Printf("1: %s\n", keyValueLog[d.Command.Key])
+						fmt.Printf("1\n")
 						// TODO: mark this read request as completed
 						readReplyMap[d.Command.CommandId] <- keyValueLog[d.Command.Key]
 						slot_out++
