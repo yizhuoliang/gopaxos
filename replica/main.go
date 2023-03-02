@@ -174,7 +174,6 @@ func ReplicaStateUpdateRoutine() {
 			}
 		} else if update.updateType == 2 {
 			// PROPOSE NEW COMMAND
-			log.Printf("processing new request...")
 			// reference sudo code propose()
 			if slot_in < slot_out+WINDOW {
 				_, ok := decisions[slot_in]
