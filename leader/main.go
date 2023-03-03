@@ -347,7 +347,8 @@ func CommanderRoutine(bsc *pb.BSC) {
 		if p2b.BallotNumber == bsc.BallotNumber && p2b.BallotLeader == leaderId {
 			// waitfor:=waitfor-{α};
 			acceptCount++
-			if acceptCount > acceptorNum/2 {
+			// BUG INJECTED!!!
+			if acceptCount > 0 {
 				decisions = append(decisions, &pb.Decision{SlotNumber: bsc.SlotNumber, Command: bsc.Command})
 				log.Printf("The bsc is decided, commander exit")
 				return
