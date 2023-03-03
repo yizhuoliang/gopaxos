@@ -256,7 +256,7 @@ func ScoutRoutine(scoutBallotNumber int32, returned bool) {
 			acceptCount++
 			pvalues = append(pvalues, p1b.Accepted...)
 			// BUG INJECTED!!!
-			if acceptCount > 0 {
+			if acceptCount > acceptorNum/2 {
 				// do adoption
 				leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 2, pvalues: pvalues, adoptionBallowNumber: scoutBallotNumber}
 				log.Printf("Scout send adoption")
@@ -349,7 +349,7 @@ func CommanderRoutine(bsc *pb.BSC) {
 			// waitfor:=waitfor-{α};
 			acceptCount++
 			// BUG INJECTED!!!
-			if acceptCount > 0 {
+			if acceptCount > acceptorNum/2 {
 				decisions = append(decisions, &pb.Decision{SlotNumber: bsc.SlotNumber, Command: bsc.Command})
 				log.Printf("The bsc is decided, commander exit")
 				return

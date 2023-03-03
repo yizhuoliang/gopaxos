@@ -112,7 +112,8 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 		ballotLeader = in.LeaderId
 	}
 	var acceptedList []*pb.BSC
-	for i := 0; i <= int(oldBallotNumber); i++ {
+	// BUG INJECTED!!!
+	for i := 0; i < int(oldBallotNumber); i++ {
 		if bscs, ok := accepted[int32(i)]; ok {
 			acceptedList = append(acceptedList, bscs...)
 		}
