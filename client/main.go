@@ -49,7 +49,7 @@ func main() {
 	simon, _ = strconv.Atoi(os.Args[2])
 
 	if simon == 1 {
-		replicaPorts = []string{"172.17.0.7:50050", "172.17.0.8:50050"}
+		replicaPorts = []string{"172.17.0.5:50050", "172.17.0.4:50050"}
 	}
 
 	// initialize command channels for messenger routines

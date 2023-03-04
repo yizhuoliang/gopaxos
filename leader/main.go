@@ -90,8 +90,8 @@ func main() {
 	// connect sim
 	if simon == 1 {
 		simc = new(comm.RPCConnection).Init(uint64(leaderId), LEADER)
-		leaderPorts = []string{"172.17.0.5:50050", "172.17.0.6:50050"}
-		acceptorPorts = []string{"172.17.0.2:50050", "172.17.0.3:50050", "172.17.0.4:50050"}
+		leaderPorts = []string{"172.17.0.7:50050", "172.17.0.6:50050"}
+		acceptorPorts = []string{"172.17.0.10:50050", "172.17.0.9:50050", "172.17.0.8:50050"}
 	}
 
 	// initialization
