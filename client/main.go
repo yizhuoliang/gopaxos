@@ -50,6 +50,8 @@ func main() {
 
 	if simon == 1 {
 		replicaPorts = []string{"172.17.0.7:50050", "172.17.0.8:50050"}
+	} else if simon == 2 {
+		replicaPorts = []string{"172.17.0.5:50050", "172.17.0.4:50050"}
 	}
 
 	// initialize command channels for messenger routines

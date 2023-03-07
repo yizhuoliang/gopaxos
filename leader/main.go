@@ -92,6 +92,10 @@ func main() {
 		simc = new(comm.RPCConnection).Init(uint64(leaderId), LEADER)
 		leaderPorts = []string{"172.17.0.5:50050", "172.17.0.6:50050"}
 		acceptorPorts = []string{"172.17.0.2:50050", "172.17.0.3:50050", "172.17.0.4:50050"}
+	} else if simon == 2 {
+		simc = new(comm.RPCConnection).Init(uint64(leaderId), LEADER)
+		leaderPorts = []string{"172.17.0.7:50050", "172.17.0.6:50050"}
+		acceptorPorts = []string{"172.17.0.10:50050", "172.17.0.9:50050", "172.17.0.8:50050"}
 	}
 
 	// initialization
@@ -294,7 +298,7 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 	defer cancel()
 
 	// P1A sent
-	if simon == 1 {
+	if simon >= 1 {
 		m := pb.Message{Type: P1A, LeaderId: leaderId, BallotNumber: scoutBallotNumber, Send: true}
 		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
 		b, err := proto.Marshal(&m)
@@ -316,7 +320,7 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 	}
 
 	// P1B received
-	if simon == 1 {
+	if simon >= 1 {
 		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(r)))
 		b, err := proto.Marshal(r)
 		if err != nil {
@@ -375,7 +379,7 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 	defer cancel()
 
 	// P2A sent
-	if simon == 1 {
+	if simon >= 1 {
 		m := pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc, Send: true}
 		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
 		b, err := proto.Marshal(&m)
@@ -400,7 +404,7 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 	}
 
 	// P2B received
-	if simon == 1 {
+	if simon >= 1 {
 		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(r)))
 		b, err := proto.Marshal(r)
 		if err != nil {
@@ -420,7 +424,7 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
 	// Proposal received
-	if simon == 1 {
+	if simon >= 1 {
 		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
 		b, err := proto.Marshal(in)
 		if err != nil {
@@ -441,25 +445,25 @@ func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message
 func (s *leaderServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
 	// Collection received
-	if simon == 3 {
-		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
-		b, err := proto.Marshal(in)
-		if err != nil {
-			log.Fatalf("marshal err:%v\n", err)
-		}
-		copy(tosend[offset:], b)
-		// debug
-		log.Print("here")
-		_, err = simc.OutConn.Write(tosend)
-		if err != nil {
-			log.Fatalf("Write to simulator failed, err:%v\n", err)
-		}
-		// debug
-		log.Print("here")
-	}
+	// if simon == -1 {
+	// 	tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
+	// 	b, err := proto.Marshal(in)
+	// 	if err != nil {
+	// 		log.Fatalf("marshal err:%v\n", err)
+	// 	}
+	// 	copy(tosend[offset:], b)
+	// 	// debug
+	// 	log.Print("here")
+	// 	_, err = simc.OutConn.Write(tosend)
+	// 	if err != nil {
+	// 		log.Fatalf("Write to simulator failed, err:%v\n", err)
+	// 	}
+	// 	// debug
+	// 	log.Print("here")
+	// }
 
 	// Decisions sent
-	if simon == 1 {
+	if simon >= 1 {
 		m := pb.Message{Type: DECISIONS, Decisions: decisions, Req: in, Send: true}
 		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
 		b, err := proto.Marshal(&m)
