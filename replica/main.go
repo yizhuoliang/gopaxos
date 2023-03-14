@@ -88,6 +88,10 @@ func main() {
 		// simc = new(comm.RPCConnection).Init(uint64(replicaId), )
 		replicaPorts = []string{"172.17.0.7:50050", "172.17.0.8:50050"}
 		leaderPorts = []string{"172.17.0.5:50050", "172.17.0.6:50050"}
+	} else if simon == 2 {
+		// simc = new(comm.RPCConnection).Init(uint64(replicaId), )
+		replicaPorts = []string{"172.17.0.5:50050", "172.17.0.4:50050"}
+		leaderPorts = []string{"172.17.0.7:50050", "172.17.0.6:50050"}
 	}
 
 	// initialization
