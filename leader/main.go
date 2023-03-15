@@ -353,7 +353,7 @@ func CommanderRoutine(bsc *pb.BSC) {
 			acceptCount++
 			if acceptCount > acceptorNum/2 {
 				decisions = append(decisions, &pb.Decision{SlotNumber: bsc.SlotNumber, Command: bsc.Command})
-				log.Printf("The bsc is decided, commander exit")
+				log.Printf("The slot %d bsc is decided, commander exit", bsc.SlotNumber)
 				return
 			}
 		} else if p2b.AcceptorId >= 0 {

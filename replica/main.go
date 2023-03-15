@@ -155,7 +155,7 @@ func ReplicaStateUpdateRoutine() {
 						// update log and update slot_out
 						keyValueLog[d.Command.Key] = d.Command.Value
 						slot_out++
-						log.Printf("Log updated - key: %s, val: %s", d.Command.Key, d.Command.Value)
+						log.Printf("Log updated - key: %s", d.Command.Key)
 						d, ok = decisions[slot_out]
 					case READ:
 						// reply to clients
