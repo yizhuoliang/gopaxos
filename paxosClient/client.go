@@ -69,6 +69,7 @@ func NewPaxosClient(clientId int, simon int) *Client {
 	for i := 0; i < replicaNum; i++ {
 		go client.MessengerRoutine(i)
 	}
+
 	return client
 }
 
@@ -145,6 +146,8 @@ func (client *Client) MessengerRoutine(serial int) {
 				if err != nil {
 					client.replyChannels[serial] <- &reply{err: err}
 					cancel()
+				} else {
+					client.replyChannels[serial] <- &reply{err: nil}
 				}
 			case READ:
 				r, err := c.Read(ctx, msg)
