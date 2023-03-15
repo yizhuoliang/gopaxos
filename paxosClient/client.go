@@ -62,6 +62,7 @@ func NewPaxosClient(clientId int, simon int) *Client {
 	// initialize command channels for messenger routines
 	for i := 0; i < replicaNum; i++ {
 		client.messageChannels[i] = make(chan *pb.Message, 1)
+		client.replyChannels[i] = make(chan *reply)
 	}
 
 	// launch messenger and collector routines
