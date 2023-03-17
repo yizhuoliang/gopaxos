@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -69,6 +71,9 @@ func main() {
 		acceptorPorts = []string{"172.17.0.10:50050", "172.17.0.9:50050", "172.17.0.8:50050"}
 	}
 
+	// overwrite ports with file
+	readPortsFile()
+
 	// initialization
 	accepted = make(map[int32][]*pb.BSC)
 	mutexChannel = make(chan int32, 1)
@@ -87,6 +92,23 @@ func serve(port string) {
 	pb.RegisterLeaderAcceptorServer(server, &acceptorServer{})
 	if err := server.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
+	}
+}
+
+func readPortsFile() {
+	f, err := os.Open("./ports.txt")
+	// if reading failed, do nothing
+	if err == nil {
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for i := 0; i < 7; i++ {
+			scanner.Scan()
+			if i >= 4 && i <= 6 {
+				acceptorPorts[i-4] = scanner.Text()
+			}
+		}
+	} else {
+		fmt.Printf("%v\n", err)
 	}
 }
 

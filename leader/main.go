@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"log"
 	"net"
@@ -97,6 +98,9 @@ func main() {
 		leaderPorts = []string{"172.17.0.7:50050", "172.17.0.6:50050"}
 		acceptorPorts = []string{"172.17.0.10:50050", "172.17.0.9:50050", "172.17.0.8:50050"}
 	}
+
+	// overwrite ports with file
+	readPortsFile()
 
 	// initialization
 	proposals = make(map[int32]*pb.Proposal)
@@ -418,6 +422,23 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 	}
 
 	commanderCollectChannel <- &pb.P2B{AcceptorId: r.AcceptorId, BallotNumber: r.BallotNumber, BallotLeader: r.BallotLeader}
+}
+
+func readPortsFile() {
+	f, err := os.Open("./ports.txt")
+	// if reading failed, do nothing
+	if err == nil {
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for i := 0; i < 7; i++ {
+			scanner.Scan()
+			if i >= 2 && i <= 3 {
+				leaderPorts[i-2] = scanner.Text()
+			} else if i >= 4 && i <= 6 {
+				acceptorPorts[i-4] = scanner.Text()
+			}
+		}
+	}
 }
 
 // gRPC HANDLERS

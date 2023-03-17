@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
@@ -94,6 +95,9 @@ func main() {
 		replicaPorts = []string{"172.17.0.5:50050", "172.17.0.4:50050"}
 		leaderPorts = []string{"172.17.0.7:50050", "172.17.0.6:50050"}
 	}
+
+	// overwrite ports with the file
+	readPortsFile()
 
 	// initialization
 	proposals = make(map[int32]*pb.Proposal)
@@ -255,6 +259,23 @@ func RetryRequestRoutine(command *pb.Command, update *replicaStateUpdateRequest)
 
 func RetryRequestPreserveOrderRoutine() {
 	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2}
+}
+
+func readPortsFile() {
+	f, err := os.Open("./ports.txt")
+	// if reading failed, do nothing
+	if err == nil {
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for i := 0; i < 7; i++ {
+			scanner.Scan()
+			if i <= 1 {
+				replicaPorts[i] = scanner.Text()
+			} else if i >= 2 && i <= 3 {
+				leaderPorts[i-2] = scanner.Text()
+			}
+		}
+	}
 }
 
 // handlers
