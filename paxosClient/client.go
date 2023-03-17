@@ -49,7 +49,7 @@ type reply struct {
 	err   error
 }
 
-func NewPaxosClient(clientId int, simon int) *Client {
+func NewPaxosClient(clientId int, simon int, replicaPorts []string) *Client {
 	client := &Client{}
 	client.clientId = int32(clientId)
 	client.commandCount = 0
@@ -57,6 +57,12 @@ func NewPaxosClient(clientId int, simon int) *Client {
 		client.replicaPorts = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
 	} else {
 		client.replicaPorts = []string{"172.17.0.7:50050", "172.17.0.8:50050"}
+	}
+
+	if replicaPorts != nil {
+		for i := 0; i < replicaNum; i++ {
+			client.replicaPorts[i] = replicaPorts[i]
+		}
 	}
 
 	// initialize command channels for messenger routines

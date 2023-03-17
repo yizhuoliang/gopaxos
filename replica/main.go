@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	WINDOW = 5
+	WINDOW = 2000
 
 	acceptorNum = 3
 	leaderNum   = 2
