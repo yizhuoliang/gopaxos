@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -49,11 +50,11 @@ var (
 	replicaPorts = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
 	leaderPorts  = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
 
-	slot_in   int32 = 0
-	slot_out  int32 = 0
-	requests  chan *pb.Command
-	proposals map[int32]*pb.Proposal
-	decisions map[int32]*pb.Decision
+	slot_in            int32 = 0
+	slot_out           int32 = 0
+	newCommandsChannel chan *pb.Command
+	proposals          map[int32]*pb.Proposal
+	decisions          map[int32]*pb.Decision
 
 	replicaStateUpdateChannel chan *replicaStateUpdateRequest
 	notificationChannel       [leaderNum]chan *pb.Message
@@ -100,7 +101,7 @@ func main() {
 	keyValueLog = make(map[string]string)
 	readReplyMap = make(map[string]chan string)
 	replicaStateUpdateChannel = make(chan *replicaStateUpdateRequest, 1)
-	requests = make(chan *pb.Command, 1)
+	newCommandsChannel = make(chan *pb.Command, 1)
 	for i := 0; i < leaderNum; i++ {
 		notificationChannel[i] = make(chan *pb.Message, 1)
 		slotInUpdateChannel[i] = make(chan int, 1)
@@ -155,7 +156,8 @@ func ReplicaStateUpdateRoutine() {
 						// update log and update slot_out
 						keyValueLog[d.Command.Key] = d.Command.Value
 						slot_out++
-						log.Printf("Log updated - key: %s", d.Command.Key)
+						log.Printf("Log updated - key: %s\n", d.Command.Key)
+						fmt.Printf("slot_out: %d, slot_in: %d\n", slot_out, slot_in)
 						d, ok = decisions[slot_out]
 					case READ:
 						// reply to clients
@@ -180,7 +182,7 @@ func ReplicaStateUpdateRoutine() {
 			if slot_in < slot_out+WINDOW {
 				_, ok := decisions[slot_in]
 				if !ok {
-					request := <-requests
+					request := <-newCommandsChannel
 					proposals[slot_in] = &pb.Proposal{SlotNumber: slot_in, Command: request}
 					msgTosend := &pb.Message{Type: PROPOSAL, SlotNumber: slot_in, Command: request}
 					for i := 0; i < leaderNum; i++ {
@@ -188,6 +190,8 @@ func ReplicaStateUpdateRoutine() {
 					}
 					slot_in++
 				}
+			} else {
+				go RetryRequestPreserveOrderRoutine()
 			}
 		}
 	}
@@ -245,14 +249,18 @@ func CollectorRoutine(serial int) {
 
 // when a proposed command's slot is decided for another proposal, we need to find a new slot for this command
 func RetryRequestRoutine(command *pb.Command, update *replicaStateUpdateRequest) {
-	requests <- command
+	newCommandsChannel <- command
 	replicaStateUpdateChannel <- update
+}
+
+func RetryRequestPreserveOrderRoutine() {
+	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2}
 }
 
 // handlers
 func (s *replicaServer) Write(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Printf("Request with command id %s received", in.CommandId)
-	requests <- in.Command
+	newCommandsChannel <- in.Command
 	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
 	return &pb.Message{Type: EMPTY, Content: "success"}, nil
 }
@@ -260,7 +268,7 @@ func (s *replicaServer) Write(ctx context.Context, in *pb.Message) (*pb.Message,
 func (s *replicaServer) Read(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Printf("Read command received, key: %s", in.Command.Key)
 	readReplyMap[in.Command.CommandId] = make(chan string, 1)
-	requests <- in.Command
+	newCommandsChannel <- in.Command
 	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
 	value := <-readReplyMap[in.Command.CommandId]
 	delete(readReplyMap, in.Command.CommandId)
