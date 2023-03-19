@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log"
 	"strconv"
-	"sync"
 	"time"
 
 	pb "github.com/yizhuoliang/gopaxos"
@@ -36,12 +35,13 @@ type Client struct {
 	clientId        int32
 	commandCount    int
 	replicaPorts    []string
-	messageChannels [replicaNum]chan *pb.Message
-	replyChannels   [replicaNum]chan *reply
+	commandChannels map[int][]chan *pb.Message
+	replyChannels   map[int][]chan *reply
 
 	simon int // 1 = on, 0 = off
 
-	mu sync.Mutex // YES! MUTEX!
+	incrementCommandNumberChannel chan int
+	commandNumberReplyChannel     chan int
 }
 
 type reply struct {
@@ -65,34 +65,37 @@ func NewPaxosClient(clientId int, simon int, replicaPorts []string) *Client {
 		}
 	}
 
-	// initialize command channels for messenger routines
-	for i := 0; i < replicaNum; i++ {
-		client.messageChannels[i] = make(chan *pb.Message, 1)
-		client.replyChannels[i] = make(chan *reply, 1)
-	}
+	// initialize reply channel map
+	client.replyChannels = make(map[int][]chan *reply, 100)
 
-	// launch messenger and collector routines
-	for i := 0; i < replicaNum; i++ {
-		go client.MessengerRoutine(i)
-	}
+	client.incrementCommandNumberChannel = make(chan int, 1)
+	client.commandNumberReplyChannel = make(chan int, 1)
+
+	go client.OperationPreperationAndCleanupRoutine()
 
 	return client
 }
 
 func (client *Client) Store(key string, value string) error {
-	client.mu.Lock()
-	defer client.mu.Unlock()
 
-	client.commandCount += 1
-	cid := "client" + strconv.Itoa(int(client.clientId)) + "-W" + strconv.Itoa(client.commandCount)
+	client.commandNumberReplyChannel <- -1 // -1 means want new command number
+	cNum := <-client.commandNumberReplyChannel
+
+	cid := "client" + strconv.Itoa(int(client.clientId)) + "-W" + strconv.Itoa(cNum)
+
+	replyChannels := make([]chan *reply, replicaNum)
+	for i := 0; i < replicaNum; i++ {
+		replyChannels[i] = make(chan *reply, 1)
+	}
+
 	// push client commands to command buffers
 	for i := 0; i < replicaNum; i++ {
-		client.messageChannels[i] <- &pb.Message{Type: WRITE, Command: &pb.Command{Type: WRITE, CommandId: cid, ClientId: client.clientId, Key: key, Value: value}, CommandId: cid, ClientId: client.clientId, Key: key, Value: value}
+		go client.TempMessengerRoutine(&pb.Message{Type: WRITE, Command: &pb.Command{Type: WRITE, CommandId: cid, ClientId: client.clientId, Key: key, Value: value}, CommandId: cid, ClientId: client.clientId, Key: key, Value: value}, replyChannels[i], i)
 	}
 	var err error = nil
 	errCount := 0
 	for i := 0; i < replicaNum; i++ {
-		reply := <-client.replyChannels[i]
+		reply := <-replyChannels[i]
 		if reply.err != nil {
 			errCount++
 			err = reply.err
@@ -106,19 +109,27 @@ func (client *Client) Store(key string, value string) error {
 }
 
 func (client *Client) Read(key string) (string, error) {
-	client.mu.Lock()
-	defer client.mu.Unlock()
 
-	client.commandCount += 1
-	cid := "client" + strconv.Itoa(int(client.clientId)) + "-R" + strconv.Itoa(client.commandCount)
+	client.commandNumberReplyChannel <- -1 // -1 means want new command number
+	cNum := <-client.commandNumberReplyChannel
+
+	cid := "client" + strconv.Itoa(int(client.clientId)) + "-R" + strconv.Itoa(cNum)
+
+	replyChannels := make([]chan *reply, replicaNum)
 	for i := 0; i < replicaNum; i++ {
-		client.messageChannels[i] <- &pb.Message{Type: READ, Command: &pb.Command{Type: READ, CommandId: cid, ClientId: client.clientId, Key: key}}
+		replyChannels[i] = make(chan *reply, 1)
 	}
+
+	// push client commands to command buffers
+	for i := 0; i < replicaNum; i++ {
+		go client.TempMessengerRoutine(&pb.Message{Type: READ, Command: &pb.Command{Type: READ, CommandId: cid, ClientId: client.clientId, Key: key}}, replyChannels[i], i)
+	}
+
 	var err error = nil
 	errCount := 0
 	value := ""
 	for i := 0; i < replicaNum; i++ {
-		reply := <-client.replyChannels[i]
+		reply := <-replyChannels[i]
 		if reply.err != nil {
 			errCount++
 			err = reply.err
@@ -133,16 +144,21 @@ func (client *Client) Read(key string) (string, error) {
 	return value, nil
 }
 
-// func (client *Client)
+func (client *Client) OperationPreperationAndCleanupRoutine() {
+	for {
+		<-client.incrementCommandNumberChannel
+		client.commandCount += 1
+		client.commandNumberReplyChannel <- client.commandCount
+	}
+}
 
-func (client *Client) MessengerRoutine(serial int) {
+func (client *Client) TempMessengerRoutine(msg *pb.Message, replyChannel chan *reply, replicaSerial int) {
 	for {
 		// reset connection for each message
-		msg := <-client.messageChannels[serial]
-		conn, err := grpc.Dial(client.replicaPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.Dial(client.replicaPorts[replicaSerial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 		if err != nil {
-			client.replyChannels[serial] <- &reply{err: err}
+			replyChannel <- &reply{err: err}
 		} else {
 			c := pb.NewClientReplicaClient(conn)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
@@ -150,22 +166,22 @@ func (client *Client) MessengerRoutine(serial int) {
 			case WRITE:
 				_, err := c.Write(ctx, msg)
 				if err != nil {
-					client.replyChannels[serial] <- &reply{err: err}
+					replyChannel <- &reply{err: err}
 					cancel()
 				} else {
-					client.replyChannels[serial] <- &reply{err: nil}
+					replyChannel <- &reply{err: nil}
 				}
 			case READ:
 				r, err := c.Read(ctx, msg)
 				if err != nil {
-					client.replyChannels[serial] <- &reply{err: err}
+					replyChannel <- &reply{err: err}
 					cancel()
 				} else {
 					log.Printf("key: %s, value: %s", msg.Command.Key, r.Content)
-					client.replyChannels[serial] <- &reply{value: r.Content, err: nil}
+					replyChannel <- &reply{value: r.Content, err: nil}
 				}
 			default:
-				client.replyChannels[serial] <- &reply{err: errors.New("unknown command type")}
+				replyChannel <- &reply{err: errors.New("unknown command type")}
 			}
 		}
 		conn.Close()
