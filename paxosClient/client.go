@@ -153,37 +153,35 @@ func (client *Client) OperationPreperationAndCleanupRoutine() {
 }
 
 func (client *Client) TempMessengerRoutine(msg *pb.Message, replyChannel chan *reply, replicaSerial int) {
-	for {
-		// reset connection for each message
-		conn, err := grpc.Dial(client.replicaPorts[replicaSerial], grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// reset connection for each message
+	conn, err := grpc.Dial(client.replicaPorts[replicaSerial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 
-		if err != nil {
-			replyChannel <- &reply{err: err}
-		} else {
-			c := pb.NewClientReplicaClient(conn)
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
-			switch msg.Type {
-			case WRITE:
-				_, err := c.Write(ctx, msg)
-				if err != nil {
-					replyChannel <- &reply{err: err}
-					cancel()
-				} else {
-					replyChannel <- &reply{err: nil}
-				}
-			case READ:
-				r, err := c.Read(ctx, msg)
-				if err != nil {
-					replyChannel <- &reply{err: err}
-					cancel()
-				} else {
-					log.Printf("key: %s, value: %s", msg.Command.Key, r.Content)
-					replyChannel <- &reply{value: r.Content, err: nil}
-				}
-			default:
-				replyChannel <- &reply{err: errors.New("unknown command type")}
+	if err != nil {
+		replyChannel <- &reply{err: err}
+	} else {
+		c := pb.NewClientReplicaClient(conn)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+		defer cancel()
+		switch msg.Type {
+		case WRITE:
+			_, err := c.Write(ctx, msg)
+			if err != nil {
+				replyChannel <- &reply{err: err}
+				cancel()
+			} else {
+				replyChannel <- &reply{err: nil}
 			}
+		case READ:
+			r, err := c.Read(ctx, msg)
+			if err != nil {
+				replyChannel <- &reply{err: err}
+				cancel()
+			} else {
+				log.Printf("key: %s, value: %s", msg.Command.Key, r.Content)
+				replyChannel <- &reply{value: r.Content, err: nil}
+			}
+		default:
+			replyChannel <- &reply{err: errors.New("unknown command type")}
 		}
-		conn.Close()
 	}
 }
