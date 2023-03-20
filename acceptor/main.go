@@ -161,8 +161,8 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 			log.Fatalf("Write to simulator failed, err:%v\n", err)
 		}
 	}
-
-	return &pb.Message{Type: P1B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: acceptedList}, nil
+	// BUG INJECT!!!:
+	return &pb.Message{Type: P1B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: make([]*pb.BSC, 0)}, nil
 }
 
 func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Message, error) {
