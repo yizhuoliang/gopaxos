@@ -110,7 +110,7 @@ func (client *Client) Store(key string, value string) error {
 
 func (client *Client) Read(key string) (string, error) {
 
-	client.commandNumberReplyChannel <- -1 // -1 means want new command number
+	client.incrementCommandNumberChannel <- 0
 	cNum := <-client.commandNumberReplyChannel
 
 	cid := "client" + strconv.Itoa(int(client.clientId)) + "-R" + strconv.Itoa(cNum)
