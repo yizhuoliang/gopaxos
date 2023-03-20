@@ -78,7 +78,7 @@ func NewPaxosClient(clientId int, simon int, replicaPorts []string) *Client {
 
 func (client *Client) Store(key string, value string) error {
 
-	client.commandNumberReplyChannel <- -1 // -1 means want new command number
+	client.incrementCommandNumberChannel <- 0
 	cNum := <-client.commandNumberReplyChannel
 
 	cid := "client" + strconv.Itoa(int(client.clientId)) + "-W" + strconv.Itoa(cNum)
