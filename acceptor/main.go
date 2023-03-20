@@ -149,7 +149,8 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 
 	// P1B sent
 	if simon >= 1 {
-		m := pb.Message{Type: P1B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: acceptedList, Req: in, Send: true}
+		// BUG INJECT!!!:
+		m := pb.Message{Type: P1B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: make([]*pb.BSC, 0), Req: in, Send: true}
 		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
 		b, err := proto.Marshal(&m)
 		if err != nil {
@@ -161,8 +162,7 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 			log.Fatalf("Write to simulator failed, err:%v\n", err)
 		}
 	}
-	// BUG INJECT!!!:
-	return &pb.Message{Type: P1B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: make([]*pb.BSC, 0)}, nil
+	return &pb.Message{Type: P1B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: acceptedList}, nil
 }
 
 func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Message, error) {
