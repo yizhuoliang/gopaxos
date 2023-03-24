@@ -32,13 +32,12 @@ const (
 )
 
 type Client struct {
-	clientId        int32
-	commandCount    int
-	replicaPorts    []string
-	commandChannels map[int][]chan *pb.Message
-	replyChannels   map[int][]chan *reply
-
-	simon int // 1 = on, 0 = off
+	clientId     int32
+	commandCount int
+	replicaPorts []string
+	// commandChannels  map[int][]chan *pb.Message
+	// replyChannels    map[int][]chan *reply
+	connectedClients []pb.ClientReplicaClient
 
 	incrementCommandNumberChannel chan int
 	commandNumberReplyChannel     chan int
@@ -65,8 +64,15 @@ func NewPaxosClient(clientId int, simon int, replicaPorts []string) *Client {
 		}
 	}
 
-	// initialize reply channel map
-	client.replyChannels = make(map[int][]chan *reply, 100)
+	client.connectedClients = make([]pb.ClientReplicaClient, replicaNum)
+	for i := 0; i < replicaNum; i++ {
+		conn, err := grpc.Dial(client.replicaPorts[i], grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err == nil {
+			client.connectedClients[i] = pb.NewClientReplicaClient(conn)
+		} else {
+			client.connectedClients[i] = nil
+		}
+	}
 
 	client.incrementCommandNumberChannel = make(chan int, 1)
 	client.commandNumberReplyChannel = make(chan int, 1)
@@ -92,18 +98,17 @@ func (client *Client) Store(key string, value string) error {
 	for i := 0; i < replicaNum; i++ {
 		go client.TempMessengerRoutine(&pb.Message{Type: WRITE, Command: &pb.Command{Type: WRITE, CommandId: cid, ClientId: client.clientId, Key: key, Value: value}, CommandId: cid, ClientId: client.clientId, Key: key, Value: value}, replyChannels[i], i)
 	}
-	var err error = nil
+
 	errCount := 0
 	for i := 0; i < replicaNum; i++ {
 		reply := <-replyChannels[i]
 		if reply.err != nil {
 			errCount++
-			err = reply.err
 		}
 	}
 	// NOTE: only return an error if all replica failed to handle
 	if errCount >= replicaNum {
-		return err
+		return errors.New("all replica failed to handle")
 	}
 	return nil
 }
@@ -125,21 +130,19 @@ func (client *Client) Read(key string) (string, error) {
 		go client.TempMessengerRoutine(&pb.Message{Type: READ, Command: &pb.Command{Type: READ, CommandId: cid, ClientId: client.clientId, Key: key}}, replyChannels[i], i)
 	}
 
-	var err error = nil
 	errCount := 0
 	value := ""
 	for i := 0; i < replicaNum; i++ {
 		reply := <-replyChannels[i]
 		if reply.err != nil {
 			errCount++
-			err = reply.err
 		} else {
 			value = reply.value
 		}
 	}
 	// NOTE: only return an error if all replica failed to handle
 	if errCount >= replicaNum {
-		return value, err
+		return "", errors.New("all replica failed to handle")
 	}
 	return value, nil
 }
@@ -154,12 +157,12 @@ func (client *Client) OperationPreperationAndCleanupRoutine() {
 
 func (client *Client) TempMessengerRoutine(msg *pb.Message, replyChannel chan *reply, replicaSerial int) {
 	// reset connection for each message
-	conn, err := grpc.Dial(client.replicaPorts[replicaSerial], grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// conn, err := grpc.Dial(client.replicaPorts[replicaSerial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 
-	if err != nil {
-		replyChannel <- &reply{err: err}
+	if client.connectedClients[replicaSerial] == nil {
+		replyChannel <- &reply{err: errors.New("connection unavailable")}
 	} else {
-		c := pb.NewClientReplicaClient(conn)
+		c := client.connectedClients[replicaSerial]
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 		defer cancel()
 		switch msg.Type {
