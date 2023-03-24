@@ -22,7 +22,7 @@ const (
 	WRITE     = 3
 	RESPONSES = 4
 	PROPOSAL  = 5
-	DECISIONS = 6
+	DECISION  = 6
 	BEAT      = 7
 	P1A       = 8
 	P1B       = 9

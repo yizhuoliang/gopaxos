@@ -17,6 +17,10 @@ service ReplicaLeader {
     rpc Heartbeat (Message) returns (Message) {} // THIS IS NOT FOR REPLICA BUT FOR LEADERS
 }
 
+service LeaderReplica {
+    rpc Decide (Message) returns (Message) {}
+}
+
 service LeaderAcceptor {
     rpc Scouting (Message) returns (Message) {}
     rpc Commanding (Message) returns (Message) {}
@@ -32,7 +36,7 @@ message Message {
     Command command = 6;
     bool valid = 7;
     repeated Response responses = 8;
-    repeated Decision decisions = 9;
+    Decision decision = 9;
     int32 ballotNumber = 10;
     int32 ballotLeader = 11;
     int32 slotNumber = 12;

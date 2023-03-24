@@ -30,7 +30,7 @@ const (
 	WRITE     = 3
 	RESPONSES = 4
 	PROPOSAL  = 5
-	DECISIONS = 6
+	DECISION  = 6
 	BEAT      = 7
 	P1A       = 8
 	P1B       = 9
@@ -44,8 +44,9 @@ const (
 )
 
 var (
-	server    *grpc.Server
-	replicaId int32
+	replicaId        int32
+	serverForClients *grpc.Server
+	serverForLeaders *grpc.Server
 
 	// for no-sim tests
 	replicaPorts = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
@@ -65,14 +66,18 @@ var (
 	keyValueLog map[string]string
 
 	// this is for replying
-	readReplyMap map[string]chan string
+	clientReplyMap map[string]chan string
 
 	// simc *comm.RPCConnection
 	simon int // 1 = on, 0 = off
 )
 
-type replicaServer struct {
+type replicaServerForClients struct {
 	pb.UnimplementedClientReplicaServer
+}
+
+type replicaServerForLeaders struct {
+	pb.UnimplementedLeaderReplicaServer
 }
 
 type replicaStateUpdateRequest struct {
@@ -103,7 +108,7 @@ func main() {
 	proposals = make(map[int32]*pb.Proposal)
 	decisions = make(map[int32]*pb.Decision)
 	keyValueLog = make(map[string]string)
-	readReplyMap = make(map[string]chan string)
+	clientReplyMap = make(map[string]chan string)
 	replicaStateUpdateChannel = make(chan *replicaStateUpdateRequest, 1)
 	newCommandsChannel = make(chan *pb.Command, 1)
 	for i := 0; i < leaderNum; i++ {
@@ -127,10 +132,10 @@ func serve(port string) {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	log.Printf("server listening at %v", lis.Addr())
-	server = grpc.NewServer()
-	pb.RegisterClientReplicaServer(server, &replicaServer{})
-	if err := server.Serve(lis); err != nil {
+	log.Printf("serverForClients listening at %v", lis.Addr())
+	serverForClients = grpc.NewServer()
+	pb.RegisterClientReplicaServer(serverForClients, &replicaServerForClients{})
+	if err := serverForClients.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
 }
@@ -166,7 +171,7 @@ func ReplicaStateUpdateRoutine() {
 					case READ:
 						// reply to clients
 						// TODO: mark this read request as completed
-						replyChan, chanOk := readReplyMap[d.Command.CommandId]
+						replyChan, chanOk := clientReplyMap[d.Command.CommandId]
 						val, valOk := keyValueLog[d.Command.Key]
 						if chanOk {
 							if valOk {
@@ -278,25 +283,31 @@ func readPortsFile() {
 	}
 }
 
-// handlers
-func (s *replicaServer) Write(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+// gRPC handlers for Clients
+func (s *replicaServerForClients) Write(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Printf("Request with command id %s received", in.CommandId)
 	newCommandsChannel <- in.Command
 	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
 	return &pb.Message{Type: EMPTY, Content: "success"}, nil
 }
 
-func (s *replicaServer) Read(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+func (s *replicaServerForClients) Read(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Printf("Read command received, key: %s", in.Command.Key)
-	readReplyMap[in.Command.CommandId] = make(chan string, 1)
+	clientReplyMap[in.Command.CommandId] = make(chan string, 1)
 	newCommandsChannel <- in.Command
 	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
-	value := <-readReplyMap[in.Command.CommandId]
-	delete(readReplyMap, in.Command.CommandId)
+	value := <-clientReplyMap[in.Command.CommandId]
+	delete(clientReplyMap, in.Command.CommandId)
 	return &pb.Message{Type: EMPTY, Content: value}, nil
 }
 
-func (s *replicaServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+// gRPC handlers for Leader
+func (s *replicaServerForLeaders) Decide(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+	log.Printf("Decision with command id %s received", in.Decision.Command.CommandId)
+	clientReplyMap[in.Decision.String()]
+}
+
+func (s *replicaServerForClients) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	var responseList []*pb.Response
 	var i int32 = 0
 	_, ok := decisions[i]
