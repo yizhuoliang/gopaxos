@@ -458,7 +458,7 @@ func decisionMessengerRoutine(serial int, decisionChannel chan *pb.Decision) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second/2)
 		defer cancel()
 
-		_, err := c.Decide(ctx, &pb.Message{Decision: decision})
+		_, err := c.Decide(ctx, &pb.Message{Type: DECISION, Decision: decision})
 
 		if err != nil {
 			// stop doing anything but preventing blocking the update routine
