@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"errors"
-	"log"
 	"strconv"
 	"time"
 
@@ -180,7 +179,7 @@ func (client *Client) TempMessengerRoutine(msg *pb.Message, replyChannel chan *r
 				replyChannel <- &reply{err: err}
 				cancel()
 			} else {
-				log.Printf("key: %s, value: %s", msg.Command.Key, r.Content)
+				// log.Printf("key: %s, value: %s", msg.Command.Key, r.Content)
 				replyChannel <- &reply{value: r.Content, err: nil}
 			}
 		default:
