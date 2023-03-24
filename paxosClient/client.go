@@ -37,7 +37,7 @@ type Client struct {
 	replicaPorts []string
 	// commandChannels  map[int][]chan *pb.Message
 	// replyChannels    map[int][]chan *reply
-	connectedClients []pb.ClientReplicaClient
+	connectedClients []pb.ReplicaClient
 
 	incrementCommandNumberChannel chan int
 	commandNumberReplyChannel     chan int
@@ -64,11 +64,11 @@ func NewPaxosClient(clientId int, simon int, replicaPorts []string) *Client {
 		}
 	}
 
-	client.connectedClients = make([]pb.ClientReplicaClient, replicaNum)
+	client.connectedClients = make([]pb.ReplicaClient, replicaNum)
 	for i := 0; i < replicaNum; i++ {
 		conn, err := grpc.Dial(client.replicaPorts[i], grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err == nil {
-			client.connectedClients[i] = pb.NewClientReplicaClient(conn)
+			client.connectedClients[i] = pb.NewReplicaClient(conn)
 		} else {
 			client.connectedClients[i] = nil
 		}

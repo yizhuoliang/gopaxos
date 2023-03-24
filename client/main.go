@@ -121,7 +121,7 @@ func MessengerRoutine(serial int) {
 		if err != nil {
 			log.Printf("failed to connect: %v", err)
 		} else {
-			c := pb.NewClientReplicaClient(conn)
+			c := pb.NewReplicaClient(conn)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 			switch msg.Type {
 			case WRITE:

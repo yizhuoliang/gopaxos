@@ -13,15 +13,14 @@ import (
 	"github.com/yizhuoliang/gopaxos/comm"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
 const (
 	acceptorNum = 3
 	leaderNum   = 2
+	replicaNum  = 2
 
 	// Message types
 	COMMAND   = 1
@@ -47,6 +46,7 @@ var (
 	leaderId int32 // also considered as the serial of this acceptor
 
 	// for no-sim tests
+	replicaPorts  = []string{"127.0.0.1:50053", "127.0.0.1:50054"}
 	leaderPorts   = []string{"127.0.0.1:50055", "127.0.0.1:50056"}
 	acceptorPorts = []string{"127.0.0.1:50057", "127.0.0.1:50058", "127.0.0.1:50059"}
 
@@ -59,7 +59,8 @@ var (
 
 	leaderStateUpdateChannel chan *leaderStateUpdateRequest
 
-	decisions []*pb.Decision
+	decisions        []*pb.Decision
+	decisionChannels []chan *pb.Decision
 
 	simc  *comm.RPCConnection
 	simon int // 1 = on, 0 = off
@@ -74,6 +75,7 @@ type leaderServer struct {
 // 2 - adoption
 // 3 - preemption
 // 4 - returned preemption
+// 5 - bsc decided
 type leaderStateUpdateRequest struct {
 	updateType             int
 	newProposal            *pb.Proposal
@@ -81,6 +83,7 @@ type leaderStateUpdateRequest struct {
 	adoptionBallowNumber   int32
 	preemptionBallotNumber int32
 	preemptionLeader       int32
+	newDecision            *pb.Decision
 }
 
 func main() {
@@ -105,6 +108,12 @@ func main() {
 	// initialization
 	proposals = make(map[int32]*pb.Proposal)
 	decisions = make([]*pb.Decision, 0)
+	decisionChannels = make([]chan *pb.Decision, replicaNum)
+	for i := 0; i < replicaNum; i++ {
+		decisionChannels[i] = make(chan *pb.Decision, 500)
+		// launch decisionMessenger
+		go decisionMessengerRoutine(i, decisionChannels[i])
+	}
 	leaderStateUpdateChannel = make(chan *leaderStateUpdateRequest, 1)
 
 	go leaderStateUpdateRoutine()
@@ -204,6 +213,12 @@ func leaderStateUpdateRoutine() {
 		} else if update.updateType == 4 {
 			// RETURNED PREEMPTION
 			go ScoutRoutine(ballotNumber, true)
+		} else if update.updateType == 5 {
+			// UPDATE DECISIONS & SEND TO REPLICAS
+			decisions = append(decisions, update.newDecision)
+			for _, chann := range decisionChannels {
+				chann <- update.newDecision
+			}
 		}
 	}
 }
@@ -356,7 +371,7 @@ func CommanderRoutine(bsc *pb.BSC) {
 			// waitfor:=waitfor-{α};
 			acceptCount++
 			if acceptCount > acceptorNum/2 {
-				decisions = append(decisions, &pb.Decision{SlotNumber: bsc.SlotNumber, Command: bsc.Command})
+				leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 5, newDecision: &pb.Decision{SlotNumber: bsc.SlotNumber, Command: bsc.Command}}
 				log.Printf("The slot %d bsc is decided, commander exit", bsc.SlotNumber)
 				return
 			}
@@ -373,7 +388,6 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 	conn, err := grpc.Dial(acceptorPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("failed to connect: %v", err)
-		return
 	}
 	defer conn.Close()
 
@@ -424,6 +438,38 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 	commanderCollectChannel <- &pb.P2B{AcceptorId: r.AcceptorId, BallotNumber: r.BallotNumber, BallotLeader: r.BallotLeader}
 }
 
+func decisionMessengerRoutine(serial int, decisionChannel chan *pb.Decision) {
+	conn, err := grpc.Dial(replicaPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("failed to connect: %v\n", err)
+		for {
+			<-decisionChannel
+		}
+	}
+	defer conn.Close()
+
+	c := pb.NewReplicaClient(conn)
+
+	for {
+		decision := <-decisionChannel
+
+		// TODO: send to simulator!!
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second/2)
+		defer cancel()
+
+		_, err := c.Decide(ctx, &pb.Message{Decision: decision})
+
+		if err != nil {
+			// stop doing anything but preventing blocking the update routine
+			log.Printf("failed to send decision: %v, stop sending to replica %d\n", err, serial)
+			for {
+				<-decisionChannel
+			}
+		}
+	}
+}
+
 func readPortsFile() {
 	f, err := os.Open("./ports.txt")
 	// if reading failed, do nothing
@@ -432,7 +478,9 @@ func readPortsFile() {
 		scanner := bufio.NewScanner(f)
 		for i := 0; i < 7; i++ {
 			scanner.Scan()
-			if i >= 2 && i <= 3 {
+			if i <= 1 {
+				replicaPorts[i] = scanner.Text()
+			} else if i >= 2 && i <= 3 {
 				leaderPorts[i-2] = scanner.Text()
 			} else if i >= 4 && i <= 6 {
 				acceptorPorts[i-4] = scanner.Text()
@@ -463,47 +511,47 @@ func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message
 	return &pb.Message{Type: EMPTY, Content: "success"}, nil
 }
 
-func (s *leaderServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+// func (s *leaderServer) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
-	// Collection received
-	// if simon == -1 {
-	// 	tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
-	// 	b, err := proto.Marshal(in)
-	// 	if err != nil {
-	// 		log.Fatalf("marshal err:%v\n", err)
-	// 	}
-	// 	copy(tosend[offset:], b)
-	// 	// debug
-	// 	log.Print("here")
-	// 	_, err = simc.OutConn.Write(tosend)
-	// 	if err != nil {
-	// 		log.Fatalf("Write to simulator failed, err:%v\n", err)
-	// 	}
-	// 	// debug
-	// 	log.Print("here")
-	// }
+// 	// Collection received
+// 	// if simon == -1 {
+// 	// 	tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
+// 	// 	b, err := proto.Marshal(in)
+// 	// 	if err != nil {
+// 	// 		log.Fatalf("marshal err:%v\n", err)
+// 	// 	}
+// 	// 	copy(tosend[offset:], b)
+// 	// 	// debug
+// 	// 	log.Print("here")
+// 	// 	_, err = simc.OutConn.Write(tosend)
+// 	// 	if err != nil {
+// 	// 		log.Fatalf("Write to simulator failed, err:%v\n", err)
+// 	// 	}
+// 	// 	// debug
+// 	// 	log.Print("here")
+// 	// }
 
-	// Decisions sent
-	if simon >= 1 {
-		m := pb.Message{Type: DECISIONS, Decisions: decisions, Req: in, Send: true}
-		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
-		b, err := proto.Marshal(&m)
-		if err != nil {
-			log.Fatalf("marshal err:%v\n", err)
-		}
-		copy(tosend[offset:], b)
-		_, err = simc.OutConn.Write(tosend)
-		if err != nil {
-			log.Fatalf("Write to simulator failed, err:%v\n", err)
-		}
-	}
+// 	// Decisions sent
+// 	if simon >= 1 {
+// 		m := pb.Message{Type: DECISIONS, Decisions: decisions, Req: in, Send: true}
+// 		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
+// 		b, err := proto.Marshal(&m)
+// 		if err != nil {
+// 			log.Fatalf("marshal err:%v\n", err)
+// 		}
+// 		copy(tosend[offset:], b)
+// 		_, err = simc.OutConn.Write(tosend)
+// 		if err != nil {
+// 			log.Fatalf("Write to simulator failed, err:%v\n", err)
+// 		}
+// 	}
 
-	if !active {
-		return nil, status.Error(codes.FailedPrecondition, "inactive leader")
-	}
+// 	if !active {
+// 		return nil, status.Error(codes.FailedPrecondition, "inactive leader")
+// 	}
 
-	return &pb.Message{Type: DECISIONS, Decisions: decisions}, nil
-}
+// 	return &pb.Message{Type: DECISIONS, Decisions: decisions}, nil
+// }
 
 func (s *leaderServer) Heartbeat(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	return &pb.Message{Type: BEAT, Active: active}, nil

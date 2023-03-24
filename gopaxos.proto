@@ -5,20 +5,17 @@ package gopaxos;
 option go_package = "./";
 
 // the service replicas provide to clients
-service ClientReplica {
+service Replica {
     rpc Write (Message) returns (Message) {}
     rpc Read (Message) returns (Message) {}
     rpc Collect (Message) returns (Message) {}
+    rpc Decide (Message) returns (Message) {}
 }
 
 service ReplicaLeader {
     rpc Propose (Message) returns (Message) {}
     rpc Collect (Message) returns (Message) {}
     rpc Heartbeat (Message) returns (Message) {} // THIS IS NOT FOR REPLICA BUT FOR LEADERS
-}
-
-service LeaderReplica {
-    rpc Decide (Message) returns (Message) {}
 }
 
 service LeaderAcceptor {

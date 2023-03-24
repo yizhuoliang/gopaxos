@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	pb "github.com/yizhuoliang/gopaxos"
@@ -67,22 +68,19 @@ var (
 
 	// this is for replying
 	clientReplyMap map[string]chan string
+	replyMapLock   sync.RWMutex
 
 	// simc *comm.RPCConnection
 	simon int // 1 = on, 0 = off
 )
 
-type replicaServerForClients struct {
-	pb.UnimplementedClientReplicaServer
-}
-
-type replicaServerForLeaders struct {
-	pb.UnimplementedLeaderReplicaServer
+type replicaServer struct {
+	pb.UnimplementedReplicaServer
 }
 
 type replicaStateUpdateRequest struct {
-	updateType   int
-	newDecisions []*pb.Decision
+	updateType  int
+	newDecision *pb.Decision
 }
 
 func main() {
@@ -120,7 +118,6 @@ func main() {
 	go ReplicaStateUpdateRoutine()
 	for i := 0; i < leaderNum; i++ {
 		go MessengerRoutine(i)
-		go CollectorRoutine(i)
 	}
 
 	serve(replicaPorts[replicaId])
@@ -134,7 +131,7 @@ func serve(port string) {
 	}
 	log.Printf("serverForClients listening at %v", lis.Addr())
 	serverForClients = grpc.NewServer()
-	pb.RegisterClientReplicaServer(serverForClients, &replicaServerForClients{})
+	pb.RegisterReplicaServer(serverForClients, &replicaServer{})
 	if err := serverForClients.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
@@ -148,43 +145,51 @@ func ReplicaStateUpdateRoutine() {
 			// RECEIVE DECISION + PERFORM
 			// log.Printf("messenger %d slot_out %d processing update type 1...", update.serial, slot_out)
 			// reference sudo code receive() -> perform()
-			for _, decision := range update.newDecisions {
-				decisions[decision.SlotNumber] = decision
-				d, ok := decisions[slot_out]
-				// PERFORM - UPDATING THE KEY_VALUE MAP
-				for ok {
-					p, okProp := proposals[slot_out]
-					if okProp {
-						delete(proposals, slot_out)
-						if d.Command.CommandId != p.Command.CommandId {
-							go RetryRequestRoutine(p.Command, &replicaStateUpdateRequest{updateType: 2})
-						}
-					}
-					switch d.Command.Type {
-					case WRITE:
-						// update log and update slot_out
-						keyValueLog[d.Command.Key] = d.Command.Value
-						slot_out++
-						log.Printf("Log updated - key: %s\n", d.Command.Key)
-						fmt.Printf("slot_out: %d, slot_in: %d\n", slot_out, slot_in)
-						d, ok = decisions[slot_out]
-					case READ:
-						// reply to clients
-						// TODO: mark this read request as completed
-						replyChan, chanOk := clientReplyMap[d.Command.CommandId]
-						val, valOk := keyValueLog[d.Command.Key]
-						if chanOk {
-							if valOk {
-								replyChan <- val
-							} else {
-								replyChan <- "ERROR: key is not in log"
-							}
-						}
-						slot_out++
-						d, ok = decisions[slot_out]
+			decision := update.newDecision
+			decisions[decision.SlotNumber] = decision
+			d, ok := decisions[slot_out]
+			// PERFORM - UPDATING THE KEY_VALUE MAP
+			for ok {
+				p, okProp := proposals[slot_out]
+				if okProp {
+					delete(proposals, slot_out)
+					if d.Command.CommandId != p.Command.CommandId {
+						go RetryRequestRoutine(p.Command, &replicaStateUpdateRequest{updateType: 2})
 					}
 				}
+				switch d.Command.Type {
+				case WRITE:
+					// update log and reply to clients and update slot_out
+					keyValueLog[d.Command.Key] = d.Command.Value
+					replyMapLock.RLock()
+					replyChan, chanOk := clientReplyMap[d.Command.CommandId]
+					replyMapLock.RUnlock()
+					if chanOk {
+						replyChan <- ""
+					}
+					slot_out++
+					log.Printf("Log updated - key: %s\n", d.Command.Key)
+					fmt.Printf("slot_out: %d, slot_in: %d\n", slot_out, slot_in)
+					d, ok = decisions[slot_out]
+				case READ:
+					// reply to clients
+					// TODO: mark this read request as completed
+					replyMapLock.RLock()
+					replyChan, chanOk := clientReplyMap[d.Command.CommandId]
+					replyMapLock.RUnlock()
+					val, valOk := keyValueLog[d.Command.Key]
+					if chanOk {
+						if valOk {
+							replyChan <- val
+						} else {
+							replyChan <- "ERROR: key is not in log"
+						}
+					}
+					slot_out++
+					d, ok = decisions[slot_out]
+				}
 			}
+
 		} else if update.updateType == 2 {
 			// PROPOSE NEW COMMAND
 			// reference sudo code propose()
@@ -227,35 +232,6 @@ func MessengerRoutine(serial int) {
 	}
 }
 
-func CollectorRoutine(serial int) {
-	logOutput := true
-	conn, err := grpc.Dial(leaderPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Printf("failed to connect: %v", err)
-		return
-	}
-	defer conn.Close()
-
-	c := pb.NewReplicaLeaderClient(conn)
-
-	for {
-		time.Sleep(time.Second)
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		r, err := c.Collect(ctx, &pb.Message{Type: EMPTY, Content: "checking responses"})
-		if err != nil {
-			if logOutput {
-				log.Printf("failed to collect: %v", err)
-			}
-			cancel()
-			logOutput = false
-			continue
-		}
-
-		logOutput = true
-		replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 1, newDecisions: r.Decisions}
-	}
-}
-
 // when a proposed command's slot is decided for another proposal, we need to find a new slot for this command
 func RetryRequestRoutine(command *pb.Command, update *replicaStateUpdateRequest) {
 	newCommandsChannel <- command
@@ -284,37 +260,39 @@ func readPortsFile() {
 }
 
 // gRPC handlers for Clients
-func (s *replicaServerForClients) Write(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+func (s *replicaServer) Write(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Printf("Request with command id %s received", in.CommandId)
+	myChan := make(chan string, 1)
+	replyMapLock.Lock()
+	clientReplyMap[in.Command.CommandId] = myChan
+	replyMapLock.Unlock()
 	newCommandsChannel <- in.Command
-	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
+	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecision: nil}
+	<-myChan
+	replyMapLock.Lock()
+	delete(clientReplyMap, in.Command.CommandId)
+	replyMapLock.Unlock()
 	return &pb.Message{Type: EMPTY, Content: "success"}, nil
 }
 
-func (s *replicaServerForClients) Read(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+func (s *replicaServer) Read(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Printf("Read command received, key: %s", in.Command.Key)
-	clientReplyMap[in.Command.CommandId] = make(chan string, 1)
+	myChan := make(chan string, 1)
+	replyMapLock.Lock()
+	clientReplyMap[in.Command.CommandId] = myChan
+	replyMapLock.Unlock()
 	newCommandsChannel <- in.Command
-	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecisions: nil}
-	value := <-clientReplyMap[in.Command.CommandId]
+	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 2, newDecision: nil}
+	value := <-myChan
+	replyMapLock.Lock()
 	delete(clientReplyMap, in.Command.CommandId)
+	replyMapLock.Unlock()
 	return &pb.Message{Type: EMPTY, Content: value}, nil
 }
 
 // gRPC handlers for Leader
-func (s *replicaServerForLeaders) Decide(ctx context.Context, in *pb.Message) (*pb.Message, error) {
+func (s *replicaServer) Decide(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Printf("Decision with command id %s received", in.Decision.Command.CommandId)
-	clientReplyMap[in.Decision.String()]
-}
-
-func (s *replicaServerForClients) Collect(ctx context.Context, in *pb.Message) (*pb.Message, error) {
-	var responseList []*pb.Response
-	var i int32 = 0
-	_, ok := decisions[i]
-	for ok { // concurrent access (fatal)
-		responseList = append(responseList, &pb.Response{Command: decisions[i].Command})
-		i++
-		_, ok = decisions[i]
-	}
-	return &pb.Message{Type: RESPONSES, Responses: responseList}, nil
+	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 1, newDecision: in.Decision}
+	return &pb.Message{Type: EMPTY}, nil
 }
