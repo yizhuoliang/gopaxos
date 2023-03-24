@@ -453,7 +453,19 @@ func decisionMessengerRoutine(serial int, decisionChannel chan *pb.Decision) {
 	for {
 		decision := <-decisionChannel
 
-		// TODO: send to simulator!!
+		if simon >= 1 {
+			m := pb.Message{Type: DECISION, Decision: decision, Send: true}
+			tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
+			b, err := proto.Marshal(&m)
+			if err != nil {
+				log.Fatalf("marshal err:%v\n", err)
+			}
+			copy(tosend[offset:], b)
+			_, err = simc.OutConn.Write(tosend)
+			if err != nil {
+				log.Fatalf("Write to simulator failed, err:%v\n", err)
+			}
+		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second/2)
 		defer cancel()
