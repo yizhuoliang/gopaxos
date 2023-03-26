@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -137,7 +138,7 @@ func serve(port string) {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	log.Printf("server listening at %v", lis.Addr())
+	fmt.Printf("server listening at %v", lis.Addr())
 	server = grpc.NewServer()
 	pb.RegisterReplicaLeaderServer(server, &leaderServer{})
 	if err := server.Serve(lis); err != nil {
@@ -146,7 +147,7 @@ func serve(port string) {
 }
 
 func setupHeartbeat() {
-	log.Printf("waiting for other leaders...")
+	fmt.Printf("waiting for other leaders...")
 	readyCount := 0
 	for {
 		for i, port := range leaderPorts {
@@ -160,7 +161,7 @@ func setupHeartbeat() {
 				heartbeatClients[i] = &c
 				readyCount++
 				if readyCount == leaderNum-1 {
-					log.Printf("heartbeat clients ready")
+					fmt.Printf("heartbeat clients ready")
 					return
 				}
 			}
@@ -230,7 +231,7 @@ func leaderStateUpdateRoutine() {
 func ScoutRoutine(scoutBallotNumber int32, returned bool) {
 
 	if !returned {
-		log.Printf("Scout spawned with ballot numebr %d", scoutBallotNumber)
+		fmt.Printf("Scout spawned with ballot numebr %d", scoutBallotNumber)
 	}
 
 	if returned {
@@ -276,7 +277,7 @@ func ScoutRoutine(scoutBallotNumber int32, returned bool) {
 			if p1b.BallotNumber != scoutBallotNumber || p1b.BallotLeader != leaderId {
 				// do preemption
 				leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 3, preemptionBallotNumber: p1b.BallotNumber}
-				log.Printf("Scout send preemption")
+				fmt.Printf("Scout send preemption")
 				return
 			}
 			acceptCount++
@@ -284,7 +285,7 @@ func ScoutRoutine(scoutBallotNumber int32, returned bool) {
 			if acceptCount > acceptorNum/2 {
 				// do adoption
 				leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 2, pvalues: pvalues, adoptionBallowNumber: scoutBallotNumber}
-				log.Printf("Scout send adoption")
+				fmt.Printf("Scout send adoption")
 				return
 			}
 		}
@@ -309,7 +310,7 @@ func BeatMessenger(serial int, beatCollectChannel chan bool) {
 func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNumber int32) {
 	conn, err := grpc.Dial(acceptorPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Printf("failed to connect: %v", err)
+		fmt.Printf("failed to connect: %v", err)
 		return
 	}
 	defer conn.Close()
@@ -334,7 +335,7 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 
 	r, err := c.Scouting(ctx, &pb.Message{Type: P1A, LeaderId: leaderId, BallotNumber: scoutBallotNumber})
 	if err != nil {
-		log.Printf("scouting failed: %v", err)
+		fmt.Printf("scouting failed: %v", err)
 		scoutCollectChannel <- &pb.P1B{AcceptorId: -1}
 		return
 	}
@@ -355,7 +356,7 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 }
 
 func CommanderRoutine(bsc *pb.BSC) {
-	log.Printf("Commander spawned for ballot number %d, slot number %d, command id %s", bsc.BallotNumber, bsc.SlotNumber, bsc.Command.CommandId)
+	fmt.Printf("Commander spawned for ballot number %d, slot number %d, command id %s", bsc.BallotNumber, bsc.SlotNumber, bsc.Command.CommandId)
 	commanderCollectChannel := make(chan *pb.P2B)
 	// send messages
 	for i := 0; i < acceptorNum; i++ {
@@ -371,13 +372,13 @@ func CommanderRoutine(bsc *pb.BSC) {
 			acceptCount++
 			if acceptCount > acceptorNum/2 {
 				leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 5, newDecision: &pb.Decision{SlotNumber: bsc.SlotNumber, Command: bsc.Command}}
-				log.Printf("The slot %d bsc is decided, commander exit", bsc.SlotNumber)
+				fmt.Printf("The slot %d bsc is decided, commander exit", bsc.SlotNumber)
 				return
 			}
 		} else if p2b.AcceptorId >= 0 {
 			// PREEMPTION
 			leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 3, preemptionBallotNumber: p2b.BallotNumber}
-			log.Printf("Commander send preemption, commander exit")
+			fmt.Printf("Commander send preemption, commander exit")
 			return
 		}
 	}
@@ -386,7 +387,7 @@ func CommanderRoutine(bsc *pb.BSC) {
 func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*pb.P2B)) {
 	conn, err := grpc.Dial(acceptorPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Printf("failed to connect: %v", err)
+		fmt.Printf("failed to connect: %v", err)
 	}
 	defer conn.Close()
 
@@ -433,7 +434,7 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 func decisionMessengerRoutine(serial int, decisionChannel chan *pb.Decision) {
 	conn, err := grpc.Dial(replicaPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Printf("failed to connect: %v\n", err)
+		fmt.Printf("failed to connect: %v\n", err)
 		for {
 			<-decisionChannel
 		}
@@ -464,7 +465,7 @@ func decisionMessengerRoutine(serial int, decisionChannel chan *pb.Decision) {
 
 		if err != nil {
 			// stop doing anything but preventing blocking the update routine
-			log.Printf("failed to send decision: %v, stop sending to replica %d\n", err, serial)
+			fmt.Printf("failed to send decision: %v, stop sending to replica %d\n", err, serial)
 			for {
 				<-decisionChannel
 			}
@@ -507,7 +508,7 @@ func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message
 	}
 
 	leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 1, newProposal: &pb.Proposal{SlotNumber: in.SlotNumber, Command: in.Command}} // Weird? Yes! Things can only be down after chekcing proposals
-	log.Printf("Received proposal with commandId %s and slot number %d", in.Command.CommandId, in.SlotNumber)
+	fmt.Printf("Received proposal with commandId %s and slot number %d", in.Command.CommandId, in.SlotNumber)
 	return &pb.Message{Type: EMPTY, Content: "success"}, nil
 }
 

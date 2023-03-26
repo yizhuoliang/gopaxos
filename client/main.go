@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"time"
@@ -119,7 +118,7 @@ func MessengerRoutine(serial int) {
 		conn, err := grpc.Dial(replicaPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 		if err != nil {
-			log.Printf("failed to connect: %v", err)
+			fmt.Printf("failed to connect: %v", err)
 		} else {
 			c := pb.NewReplicaClient(conn)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
@@ -127,25 +126,25 @@ func MessengerRoutine(serial int) {
 			case WRITE:
 				_, err := c.Write(ctx, msg)
 				if err != nil {
-					log.Printf("failed to request: %v", err)
+					fmt.Printf("failed to request: %v", err)
 					cancel()
 				}
 			case READ:
 				r, err := c.Read(ctx, msg)
 				if err != nil {
-					log.Printf("failed to read: %v", err)
+					fmt.Printf("failed to read: %v", err)
 					cancel()
 				} else {
-					log.Printf("key: %s, value: %s", msg.Command.Key, r.Content)
+					fmt.Printf("key: %s, value: %s", msg.Command.Key, r.Content)
 				}
 			case EMPTY:
 				r, err := c.Collect(ctx, msg)
 				if err != nil {
-					log.Printf("failed to collect: %v", err)
+					fmt.Printf("failed to collect: %v", err)
 					cancel()
 				} else {
 					for _, response := range r.Responses {
-						log.Printf("%s is responded. key: %s, value: %s", response.Command.CommandId, response.Command.Key, response.Command.Value)
+						fmt.Printf("%s is responded. key: %s, value: %s", response.Command.CommandId, response.Command.Key, response.Command.Value)
 					}
 				}
 			}

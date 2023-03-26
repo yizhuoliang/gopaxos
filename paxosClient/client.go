@@ -179,7 +179,7 @@ func (client *Client) TempMessengerRoutine(msg *pb.Message, replyChannel chan *r
 				replyChannel <- &reply{err: err}
 				cancel()
 			} else {
-				// // log.Printf("key: %s, value: %s", msg.Command.Key, r.Content)
+				// // fmt.Printf("key: %s, value: %s", msg.Command.Key, r.Content)
 				replyChannel <- &reply{value: r.Content, err: nil}
 			}
 		default:

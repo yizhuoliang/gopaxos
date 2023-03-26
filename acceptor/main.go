@@ -88,7 +88,7 @@ func serve(port string) {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	log.Printf("server listening at %v", lis.Addr())
+	fmt.Printf("server listening at %v", lis.Addr())
 	server = grpc.NewServer()
 	pb.RegisterLeaderAcceptorServer(server, &acceptorServer{})
 	if err := server.Serve(lis); err != nil {
@@ -129,7 +129,7 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 	}
 
 	<-mutexChannel
-	log.Printf("Scouting received")
+	fmt.Printf("Scouting received")
 	oldBallotNumber := ballotNumber
 	if in.BallotNumber > ballotNumber || (in.BallotNumber == ballotNumber && in.LeaderId != ballotLeader) {
 		ballotNumber = in.BallotNumber
@@ -143,7 +143,7 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 	}
 	currentBallotNumber := ballotNumber
 	currentBallotLeader := ballotLeader
-	log.Printf("Scouting received, current states: ballot number %d, ballot leader %d", ballotNumber, ballotLeader)
+	fmt.Printf("Scouting received, current states: ballot number %d, ballot leader %d", ballotNumber, ballotLeader)
 	mutexChannel <- 1
 
 	// P1B sent
@@ -178,13 +178,13 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Me
 
 	<-mutexChannel
 	ballotNumber := ballotNumber // concurrency concern, avoid ballot number update during execution
-	log.Printf("Commanding received")
+	fmt.Printf("Commanding received")
 	acceptCid := ""
 	if in.Bsc.BallotNumber >= ballotNumber && in.LeaderId == ballotLeader {
 		ballotNumber = in.Bsc.BallotNumber
 		acceptCid = in.Bsc.Command.CommandId
 		accepted[ballotNumber] = append(accepted[ballotNumber], in.Bsc)
-		log.Printf("Commanding accepted: ballot number %d, ballot leader %d", ballotNumber, ballotLeader)
+		fmt.Printf("Commanding accepted: ballot number %d, ballot leader %d", ballotNumber, ballotLeader)
 	}
 	currentBallotNumber := ballotNumber
 	currentBallotLeader := ballotLeader

@@ -129,7 +129,7 @@ func serve(port string) {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	log.Printf("serverForClients listening at %v", lis.Addr())
+	fmt.Printf("serverForClients listening at %v", lis.Addr())
 	serverForClients = grpc.NewServer()
 	pb.RegisterReplicaServer(serverForClients, &replicaServer{})
 	if err := serverForClients.Serve(lis); err != nil {
@@ -143,7 +143,7 @@ func ReplicaStateUpdateRoutine() {
 		update := <-replicaStateUpdateChannel
 		if update.updateType == 1 {
 			// RECEIVE DECISION + PERFORM
-			// log.Printf("messenger %d slot_out %d processing update type 1...", update.serial, slot_out)
+			// fmt.Printf("messenger %d slot_out %d processing update type 1...", update.serial, slot_out)
 			// reference sudo code receive() -> perform()
 			decision := update.newDecision
 			decisions[decision.SlotNumber] = decision
@@ -168,7 +168,7 @@ func ReplicaStateUpdateRoutine() {
 						replyChan <- ""
 					}
 					slot_out++
-					log.Printf("Log updated - key: %s\n", d.Command.Key)
+					fmt.Printf("Log updated - key: %s\n", d.Command.Key)
 					fmt.Printf("slot_out: %d, slot_in: %d\n", slot_out, slot_in)
 					d, ok = decisions[slot_out]
 				case READ:
@@ -218,13 +218,13 @@ func MessengerRoutine(serial int) {
 		conn, err := grpc.Dial(leaderPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 		if err != nil {
-			log.Printf("failed to connect: %v", err)
+			fmt.Printf("failed to connect: %v", err)
 		} else {
 			c := pb.NewReplicaLeaderClient(conn)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			_, err := c.Propose(ctx, msgTosend)
 			if err != nil {
-				log.Printf("failed to propose: %v", err)
+				fmt.Printf("failed to propose: %v", err)
 				cancel()
 			}
 		}
@@ -261,7 +261,7 @@ func readPortsFile() {
 
 // gRPC handlers for Clients
 func (s *replicaServer) Write(ctx context.Context, in *pb.Message) (*pb.Message, error) {
-	log.Printf("Request with command id %s received", in.CommandId)
+	fmt.Printf("Request with command id %s received", in.CommandId)
 	myChan := make(chan string, 1)
 	replyMapLock.Lock()
 	clientReplyMap[in.Command.CommandId] = myChan
@@ -276,7 +276,7 @@ func (s *replicaServer) Write(ctx context.Context, in *pb.Message) (*pb.Message,
 }
 
 func (s *replicaServer) Read(ctx context.Context, in *pb.Message) (*pb.Message, error) {
-	log.Printf("Read command received, key: %s", in.Command.Key)
+	fmt.Printf("Read command received, key: %s", in.Command.Key)
 	myChan := make(chan string, 1)
 	replyMapLock.Lock()
 	clientReplyMap[in.Command.CommandId] = myChan
@@ -292,7 +292,7 @@ func (s *replicaServer) Read(ctx context.Context, in *pb.Message) (*pb.Message, 
 
 // gRPC handlers for Leader
 func (s *replicaServer) Decide(ctx context.Context, in *pb.Message) (*pb.Message, error) {
-	log.Printf("Decision with command id %s received", in.Decision.Command.CommandId)
+	fmt.Printf("Decision with command id %s received", in.Decision.Command.CommandId)
 	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 1, newDecision: in.Decision}
 	return &pb.Message{Type: EMPTY}, nil
 }
