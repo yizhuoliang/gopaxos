@@ -109,6 +109,7 @@ func (c *RPCConnection) Init(myId uint64, myRole uint64) *RPCConnection {
 
 	if MODE == SYNC {
 		c.mutex = &sync.RWMutex{}
+		c.reqMu = &sync.Mutex{}
 		c.cond = sync.NewCond(c.mutex)
 		c.doneIds = new(sync.Map)
 		go func() {
