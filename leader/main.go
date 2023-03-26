@@ -101,6 +101,7 @@ func main() {
 		acceptorPorts = []string{"172.17.0.8:50050", "172.17.0.7:50050", "172.17.0.6:50050"}
 	} else if simon == 2 {
 		simc = new(comm.RPCConnection).Init(uint64(leaderId), LEADER)
+		replicaPorts = []string{"172.17.0.6:50050", "172.17.0.5:50050"}
 		leaderPorts = []string{"172.17.0.8:50050", "172.17.0.7:50050"}
 		acceptorPorts = []string{"172.17.0.11:50050", "172.17.0.10:50050", "172.17.0.9:50050"}
 	}
