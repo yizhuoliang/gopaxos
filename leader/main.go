@@ -366,7 +366,7 @@ func CommanderRoutine(bsc *pb.BSC) {
 	acceptCount := 0
 	for i := 0; i < acceptorNum; i++ {
 		p2b := <-commanderCollectChannel
-		if p2b.BallotNumber == bsc.BallotNumber && p2b.BallotLeader == leaderId {
+		if p2b.AcceptorId != -1 && p2b.BallotNumber == bsc.BallotNumber && p2b.BallotLeader == leaderId {
 			// waitfor:=waitfor-{α};
 			acceptCount++
 			if acceptCount > acceptorNum/2 {
