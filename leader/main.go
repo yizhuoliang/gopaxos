@@ -321,16 +321,14 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 	// P1A sent
 	if simon >= 1 {
 		m := pb.Message{Type: P1A, LeaderId: leaderId, BallotNumber: scoutBallotNumber, Send: true}
-		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
+		reqId, tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
 		b, err := proto.Marshal(&m)
 		if err != nil {
 			log.Fatalf("marshal err:%v\n", err)
 		}
 		copy(tosend[offset:], b)
-		_, err = simc.OutConn.Write(tosend)
-		if err != nil {
-			log.Fatalf("Write to simulator failed, err:%v\n", err)
-		}
+		ch := simc.Request(tosend)
+		simc.WaitFor(reqId, ch)
 	}
 
 	r, err := c.Scouting(ctx, &pb.Message{Type: P1A, LeaderId: leaderId, BallotNumber: scoutBallotNumber})
@@ -342,16 +340,14 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 
 	// P1B received
 	if simon >= 1 {
-		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(r)))
+		reqId, tosend, offset := simc.AllocateRequest((uint64)(proto.Size(r)))
 		b, err := proto.Marshal(r)
 		if err != nil {
 			log.Fatalf("marshal err:%v\n", err)
 		}
 		copy(tosend[offset:], b)
-		_, err = simc.OutConn.Write(tosend)
-		if err != nil {
-			log.Fatalf("Write to simulator failed, err:%v\n", err)
-		}
+		ch := simc.Request(tosend)
+		simc.WaitFor(reqId, ch)
 	}
 
 	scoutCollectChannel <- &pb.P1B{AcceptorId: r.AcceptorId, BallotNumber: r.BallotNumber, BallotLeader: r.BallotLeader, Accepted: r.Accepted}
@@ -401,20 +397,15 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 	// P2A sent
 	if simon >= 1 {
 		m := pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc, Send: true}
-		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
+		reqId, tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
 		b, err := proto.Marshal(&m)
 		log.Print(b)
 		if err != nil {
 			log.Fatalf("marshal err:%v\n", err)
 		}
 		copy(tosend[offset:], b)
-		_, err = simc.OutConn.Write(tosend)
-		postmarshal := pb.Message{}
-		proto.Unmarshal(b, &postmarshal)
-		log.Printf("P2A post marshal: %v", &postmarshal)
-		if err != nil {
-			log.Fatalf("Write to simulator failed, err:%v\n", err)
-		}
+		ch := simc.Request(tosend)
+		simc.WaitFor(reqId, ch)
 	}
 
 	r, err := c.Commanding(ctx, &pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc})
@@ -425,16 +416,14 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 
 	// P2B received
 	if simon >= 1 {
-		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(r)))
+		reqId, tosend, offset := simc.AllocateRequest((uint64)(proto.Size(r)))
 		b, err := proto.Marshal(r)
 		if err != nil {
 			log.Fatalf("marshal err:%v\n", err)
 		}
 		copy(tosend[offset:], b)
-		_, err = simc.OutConn.Write(tosend)
-		if err != nil {
-			log.Fatalf("Write to simulator failed, err:%v\n", err)
-		}
+		ch := simc.Request(tosend)
+		simc.WaitFor(reqId, ch)
 	}
 
 	commanderCollectChannel <- &pb.P2B{AcceptorId: r.AcceptorId, BallotNumber: r.BallotNumber, BallotLeader: r.BallotLeader}
@@ -457,16 +446,14 @@ func decisionMessengerRoutine(serial int, decisionChannel chan *pb.Decision) {
 
 		if simon >= 1 {
 			m := pb.Message{Type: DECISION, Decision: decision, Send: true}
-			tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
+			reqId, tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
 			b, err := proto.Marshal(&m)
 			if err != nil {
 				log.Fatalf("marshal err:%v\n", err)
 			}
 			copy(tosend[offset:], b)
-			_, err = simc.OutConn.Write(tosend)
-			if err != nil {
-				log.Fatalf("Write to simulator failed, err:%v\n", err)
-			}
+			ch := simc.Request(tosend)
+			simc.WaitFor(reqId, ch)
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second/2)
@@ -508,16 +495,14 @@ func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message
 
 	// Proposal received
 	if simon >= 1 {
-		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
+		reqId, tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
 		b, err := proto.Marshal(in)
 		if err != nil {
 			log.Fatalf("marshal err:%v\n", err)
 		}
 		copy(tosend[offset:], b)
-		_, err = simc.OutConn.Write(tosend)
-		if err != nil {
-			log.Fatalf("Write to simulator failed, err:%v\n", err)
-		}
+		ch := simc.Request(tosend)
+		simc.WaitFor(reqId, ch)
 	}
 
 	leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 1, newProposal: &pb.Proposal{SlotNumber: in.SlotNumber, Command: in.Command}} // Weird? Yes! Things can only be down after chekcing proposals

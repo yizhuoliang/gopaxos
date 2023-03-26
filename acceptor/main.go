@@ -117,16 +117,14 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 
 	// P1A received
 	if simon >= 1 {
-		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
+		reqId, tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
 		b, err := proto.Marshal(in)
 		if err != nil {
 			log.Fatalf("marshal err:%v\n", err)
 		}
 		copy(tosend[offset:], b)
-		_, err = simc.OutConn.Write(tosend)
-		if err != nil {
-			log.Fatalf("Write to simulator failed, err:%v\n", err)
-		}
+		ch := simc.Request(tosend)
+		simc.WaitFor(reqId, ch)
 	}
 
 	<-mutexChannel
@@ -150,16 +148,14 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 	// P1B sent
 	if simon >= 1 {
 		m := pb.Message{Type: P1B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: acceptedList, Req: in, Send: true}
-		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
+		reqId, tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
 		b, err := proto.Marshal(&m)
 		if err != nil {
 			log.Fatalf("marshal err:%v\n", err)
 		}
 		copy(tosend[offset:], b)
-		_, err = simc.OutConn.Write(tosend)
-		if err != nil {
-			log.Fatalf("Write to simulator failed, err:%v\n", err)
-		}
+		ch := simc.Request(tosend)
+		simc.WaitFor(reqId, ch)
 	}
 
 	return &pb.Message{Type: P1B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, Accepted: acceptedList}, nil
@@ -169,16 +165,14 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Me
 
 	// P2A received
 	if simon >= 1 {
-		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
+		reqId, tosend, offset := simc.AllocateRequest((uint64)(proto.Size(in)))
 		b, err := proto.Marshal(in)
 		if err != nil {
 			log.Fatalf("marshal err:%v\n", err)
 		}
 		copy(tosend[offset:], b)
-		_, err = simc.OutConn.Write(tosend)
-		if err != nil {
-			log.Fatalf("Write to simulator failed, err:%v\n", err)
-		}
+		ch := simc.Request(tosend)
+		simc.WaitFor(reqId, ch)
 	}
 
 	<-mutexChannel
@@ -198,16 +192,14 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Me
 	// P2B sent
 	if simon >= 1 {
 		m := pb.Message{Type: P2B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader, CommandId: acceptCid, Req: in, Send: true}
-		tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
+		reqId, tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
 		b, err := proto.Marshal(&m)
 		if err != nil {
 			log.Fatalf("marshal err:%v\n", err)
 		}
 		copy(tosend[offset:], b)
-		_, err = simc.OutConn.Write(tosend)
-		if err != nil {
-			log.Fatalf("Write to simulator failed, err:%v\n", err)
-		}
+		ch := simc.Request(tosend)
+		simc.WaitFor(reqId, ch)
 	}
 
 	return &pb.Message{Type: P2B, AcceptorId: acceptorId, BallotNumber: currentBallotNumber, BallotLeader: currentBallotLeader}, nil

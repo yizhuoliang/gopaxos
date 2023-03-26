@@ -146,12 +146,14 @@ func (c *RPCConnection) NextReqId() uint64 {
 	return nextReqId
 }
 
-func (c *RPCConnection) AllocateRequest(length uint64) ([]byte, int) {
-	reqbytes := make([]byte, 16+length)
+func (c *RPCConnection) AllocateRequest(length uint64) (uint64, []byte, int) {
+	reqbytes := make([]byte, 24+length)
 	copy(reqbytes[:8], []byte("nyusimul"))
-	binary.LittleEndian.PutUint64(reqbytes[8:16], length)
-	offset := 16
-	return reqbytes, offset
+	reqId := c.NextReqId()
+	binary.LittleEndian.PutUint64(reqbytes[8:16], reqId)
+	binary.LittleEndian.PutUint64(reqbytes[16:24], length)
+	offset := 24
+	return reqId, reqbytes, offset
 }
 
 func (c *RPCConnection) ExtractReqId(reqbytes []byte) uint64 {
@@ -167,9 +169,12 @@ func (c *RPCConnection) Request(reqbytes []byte) chan bool {
 		c.doneIds.Store(reqId, ch)
 	}
 
-	_, err := c.OutConn.Write(reqbytes)
+	n, err := c.OutConn.Write(reqbytes)
 	if err != nil {
 		panic(fmt.Sprintf("Write to conn failed, err:%v\n", err))
+	}
+	if n != len(reqbytes) {
+		panic(fmt.Sprintf("Write to conn failed, n:%v, len(reqbytes):%v\n", n, len(reqbytes)))
 	}
 	return ch
 }
