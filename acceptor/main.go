@@ -62,7 +62,6 @@ func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	acceptorId = int32(temp)
 	simon, _ = strconv.Atoi(os.Args[2])
-	syncon, _ = strconv.Atoi(os.Args[3])
 
 	// connect sim
 	if simon == 1 {
