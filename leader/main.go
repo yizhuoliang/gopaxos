@@ -273,7 +273,7 @@ func ScoutRoutine(scoutBallotNumber int32, returned bool) {
 	for i := 0; i < acceptorNum; i++ {
 		p1b := <-scoutCollectChannel
 		if p1b.AcceptorId >= 0 {
-			if p1b.BallotNumber != scoutBallotNumber || p1b.BallotLeader != leaderId {
+			if p1b.AcceptorId != -1 && (p1b.BallotNumber != scoutBallotNumber || p1b.BallotLeader != leaderId) {
 				// do preemption
 				leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 3, preemptionBallotNumber: p1b.BallotNumber}
 				log.Printf("Scout send preemption")
