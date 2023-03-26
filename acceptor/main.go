@@ -49,8 +49,9 @@ var (
 
 	mutexChannel chan int32
 
-	simc  *comm.RPCConnection
-	simon int // 1 = on, 0 = off
+	simc   *comm.RPCConnection
+	simon  int // 1 = on, 0 = off
+	syncon int // 1 = on, 0 = off
 )
 
 type acceptorServer struct {
@@ -61,6 +62,7 @@ func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	acceptorId = int32(temp)
 	simon, _ = strconv.Atoi(os.Args[2])
+	syncon, _ = strconv.Atoi(os.Args[3])
 
 	// connect sim
 	if simon == 1 {

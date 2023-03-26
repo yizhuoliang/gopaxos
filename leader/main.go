@@ -62,8 +62,9 @@ var (
 	decisions        []*pb.Decision
 	decisionChannels []chan *pb.Decision
 
-	simc  *comm.RPCConnection
-	simon int // 1 = on, 0 = off
+	simc   *comm.RPCConnection
+	simon  int // 1 = on, 0 = off
+	syncon int
 )
 
 type leaderServer struct {
@@ -90,6 +91,7 @@ func main() {
 	temp, _ := strconv.Atoi(os.Args[1])
 	leaderId = int32(temp)
 	simon, _ = strconv.Atoi(os.Args[2])
+	syncon, _ = strconv.Atoi(os.Args[3])
 
 	// connect sim
 	if simon == 1 {
@@ -350,6 +352,14 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 		_, err = simc.OutConn.Write(tosend)
 		if err != nil {
 			log.Fatalf("Write to simulator failed, err:%v\n", err)
+		}
+
+		if syncon > 0 {
+			bytes := make([]byte, 16)
+			for {
+				n, err := simc.InConn.Read(bytes)
+
+			}
 		}
 	}
 
