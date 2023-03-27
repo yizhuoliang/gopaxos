@@ -184,7 +184,7 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Me
 		ballotNumber = in.Bsc.BallotNumber
 		acceptCid = in.Bsc.Command.CommandId
 		accepted[ballotNumber] = append(accepted[ballotNumber], in.Bsc)
-		fmt.Printf("Commanding accepted: ballot number %d, ballot leader %d, comID: %s\n", ballotNumber, ballotLeader, in.CommandId)
+		fmt.Printf("Commanding accepted: ballot number %d, ballot leader %d, comID: %s\n", ballotNumber, ballotLeader, in.Bsc.Command.CommandId)
 	}
 	currentBallotNumber := ballotNumber
 	currentBallotLeader := ballotLeader
