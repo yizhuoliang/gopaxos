@@ -407,7 +407,6 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 		}
 		copy(tosend[offset:], b)
 		ch := simc.Request(tosend)
-		fmt.Printf("leader really sure??\n")
 		simc.WaitFor(reqId, ch)
 	}
 
@@ -426,6 +425,7 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 		}
 		copy(tosend[offset:], b)
 		ch := simc.Request(tosend)
+		fmt.Printf("leader really sure??\n")
 		simc.WaitFor(reqId, ch)
 	}
 
