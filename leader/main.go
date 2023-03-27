@@ -401,7 +401,6 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 		m := pb.Message{Type: P2A, LeaderId: leaderId, Bsc: bsc, Send: true}
 		reqId, tosend, offset := simc.AllocateRequest((uint64)(proto.Size(&m)))
 		b, err := proto.Marshal(&m)
-		log.Print(b)
 		if err != nil {
 			log.Fatalf("marshal err:%v", err)
 		}
