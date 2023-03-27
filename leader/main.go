@@ -349,6 +349,7 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 		}
 		copy(tosend[offset:], b)
 		ch := simc.Request(tosend)
+		fmt.Printf("leader really sure??")
 		simc.WaitFor(reqId, ch)
 	}
 
