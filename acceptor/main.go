@@ -114,7 +114,7 @@ func readPortsFile() {
 }
 
 func commandId2String(cid int64) string {
-	return strconv.FormatInt(cid>>54, 10) + strconv.FormatInt(cid%int64(1)<<54, 10)
+	return strconv.FormatInt(cid>>54, 10) + "-" + strconv.FormatInt(cid%int64(1)<<54, 10)
 }
 
 // gRPC handlers
