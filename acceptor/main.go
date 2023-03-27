@@ -129,7 +129,7 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 	}
 
 	<-mutexChannel
-	fmt.Printf("Scouting received")
+	fmt.Printf("Scouting received\n")
 	oldBallotNumber := ballotNumber
 	if in.BallotNumber > ballotNumber || (in.BallotNumber == ballotNumber && in.LeaderId != ballotLeader) {
 		ballotNumber = in.BallotNumber
@@ -143,7 +143,7 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 	}
 	currentBallotNumber := ballotNumber
 	currentBallotLeader := ballotLeader
-	fmt.Printf("Scouting received, current states: ballot number %d, ballot leader %d", ballotNumber, ballotLeader)
+	fmt.Printf("Scouting received, current states: ballot number %d, ballot leader %d\n", ballotNumber, ballotLeader)
 	mutexChannel <- 1
 
 	// P1B sent
@@ -178,13 +178,13 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Me
 
 	<-mutexChannel
 	ballotNumber := ballotNumber // concurrency concern, avoid ballot number update during execution
-	fmt.Printf("Commanding received")
+	fmt.Printf("Commanding received\n")
 	acceptCid := ""
 	if in.Bsc.BallotNumber >= ballotNumber && in.LeaderId == ballotLeader {
 		ballotNumber = in.Bsc.BallotNumber
 		acceptCid = in.Bsc.Command.CommandId
 		accepted[ballotNumber] = append(accepted[ballotNumber], in.Bsc)
-		fmt.Printf("Commanding accepted: ballot number %d, ballot leader %d", ballotNumber, ballotLeader)
+		fmt.Printf("Commanding accepted: ballot number %d, ballot leader %d, comID: %s\n", ballotNumber, ballotLeader, in.CommandId)
 	}
 	currentBallotNumber := ballotNumber
 	currentBallotLeader := ballotLeader
