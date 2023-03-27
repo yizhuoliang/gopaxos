@@ -417,6 +417,8 @@ func CommanderMessenger(serial int, bsc *pb.BSC, commanderCollectChannel chan (*
 
 	// P2B received
 	if simon >= 1 {
+		// IMPORTANT: ADDING THE SLOT NUMBER THAT THIS P2B WAS REPLYING TO
+		r.Bsc = bsc
 		reqId, tosend, offset := simc.AllocateRequest((uint64)(proto.Size(r)))
 		b, err := proto.Marshal(r)
 		if err != nil {

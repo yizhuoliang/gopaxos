@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"reflect"
 
 	pb "github.com/yizhuoliang/gopaxos"
 )
@@ -32,6 +31,13 @@ func main() {
 	// }
 
 	p1 := &pb.Command{CommandId: "client0-1", Key: "ding", Value: "ding"}
-	p2 := &pb.Command{CommandId: "client0-1", Key: "ding", Value: "ding"}
-	fmt.Printf("%t\n", reflect.DeepEqual(p1, p2))
+	p2 := &pb.Command{CommandId: "client0-2", Key: "zhang", Value: "han"}
+	// fmt.Printf("%t\n", reflect.DeepEqual(p1, p2))
+
+	sli := make([]*pb.Command, 1)
+	sli[0] = p1
+	sli2 := make([]*pb.Command, 2)
+	sli = append(sli, sli2...)
+	sli[2] = p2
+	fmt.Printf("%v\n", sli)
 }
