@@ -178,13 +178,13 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Me
 
 	<-mutexChannel
 	ballotNumber := ballotNumber // concurrency concern, avoid ballot number update during execution
-	fmt.Printf("Commanding received\n")
+	fmt.Printf("Commanding received:  ballot number %d, ballot leader %d, comID: %s, slot: %d\n", ballotNumber, ballotLeader, in.Bsc.Command.CommandId, in.Bsc.SlotNumber)
 	acceptCid := ""
 	if in.Bsc.BallotNumber >= ballotNumber && in.LeaderId == ballotLeader {
 		ballotNumber = in.Bsc.BallotNumber
 		acceptCid = in.Bsc.Command.CommandId
 		accepted[ballotNumber] = append(accepted[ballotNumber], in.Bsc)
-		fmt.Printf("Commanding accepted: ballot number %d, ballot leader %d, comID: %s\n", ballotNumber, ballotLeader, in.Bsc.Command.CommandId)
+		fmt.Printf("Commanding accepted: ballot number %d, ballot leader %d, comID: %s, slot: %d\n", ballotNumber, ballotLeader, in.Bsc.Command.CommandId, in.Bsc.SlotNumber)
 	}
 	currentBallotNumber := ballotNumber
 	currentBallotLeader := ballotLeader
