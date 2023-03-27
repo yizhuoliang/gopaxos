@@ -113,6 +113,10 @@ func readPortsFile() {
 	}
 }
 
+func commandId2String(cid int64) string {
+	return strconv.FormatInt(cid>>54, 10) + strconv.FormatInt(cid%int64(1)<<54, 10)
+}
+
 // gRPC handlers
 func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
@@ -178,13 +182,13 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Me
 
 	<-mutexChannel
 	ballotNumber := ballotNumber // concurrency concern, avoid ballot number update during execution
-	fmt.Printf("Commanding received:  ballot number %d, ballot leader %d, comID: %s, slot: %d\n", ballotNumber, ballotLeader, in.Bsc.Command.CommandId, in.Bsc.SlotNumber)
-	acceptCid := ""
+	fmt.Printf("Commanding received:  ballot number %d, ballot leader %d, comID: %s, slot: %d\n", ballotNumber, ballotLeader, commandId2String(in.Bsc.Command.CommandId), in.Bsc.SlotNumber)
+	acceptCid := int64(-1)
 	if in.Bsc.BallotNumber >= ballotNumber && in.LeaderId == ballotLeader {
 		ballotNumber = in.Bsc.BallotNumber
 		acceptCid = in.Bsc.Command.CommandId
 		accepted[ballotNumber] = append(accepted[ballotNumber], in.Bsc)
-		fmt.Printf("Commanding accepted: ballot number %d, ballot leader %d, comID: %s, slot: %d\n", ballotNumber, ballotLeader, in.Bsc.Command.CommandId, in.Bsc.SlotNumber)
+		fmt.Printf("Commanding accepted: ballot number %d, ballot leader %d, comID: %s, slot: %d\n", ballotNumber, ballotLeader, commandId2String(in.Bsc.Command.CommandId), in.Bsc.SlotNumber)
 	}
 	currentBallotNumber := ballotNumber
 	currentBallotLeader := ballotLeader

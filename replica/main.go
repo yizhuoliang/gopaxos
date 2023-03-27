@@ -67,7 +67,7 @@ var (
 	keyValueLog map[string]string
 
 	// this is for replying
-	clientReplyMap map[string]chan string
+	clientReplyMap map[int64]chan string
 	replyMapLock   sync.RWMutex
 
 	// simc *comm.RPCConnection
@@ -106,7 +106,7 @@ func main() {
 	proposals = make(map[int32]*pb.Proposal)
 	decisions = make(map[int32]*pb.Decision)
 	keyValueLog = make(map[string]string)
-	clientReplyMap = make(map[string]chan string)
+	clientReplyMap = make(map[int64]chan string)
 	replicaStateUpdateChannel = make(chan *replicaStateUpdateRequest, 1)
 	newCommandsChannel = make(chan *pb.Command, 1)
 	for i := 0; i < leaderNum; i++ {
@@ -259,9 +259,13 @@ func readPortsFile() {
 	}
 }
 
+func commandId2String(cid int64) string {
+	return strconv.FormatInt(cid>>54, 10) + strconv.FormatInt(cid%int64(1)<<54, 10)
+}
+
 // gRPC handlers for Clients
 func (s *replicaServer) Write(ctx context.Context, in *pb.Message) (*pb.Message, error) {
-	fmt.Printf("Request with command id %s received", in.CommandId)
+	fmt.Printf("Request with command id %s received", commandId2String(in.CommandId))
 	myChan := make(chan string, 1)
 	replyMapLock.Lock()
 	clientReplyMap[in.Command.CommandId] = myChan
@@ -292,7 +296,7 @@ func (s *replicaServer) Read(ctx context.Context, in *pb.Message) (*pb.Message, 
 
 // gRPC handlers for Leader
 func (s *replicaServer) Decide(ctx context.Context, in *pb.Message) (*pb.Message, error) {
-	fmt.Printf("Decision with command id %s received", in.Decision.Command.CommandId)
+	fmt.Printf("Decision with command id %s received", commandId2String(in.Decision.Command.CommandId))
 	replicaStateUpdateChannel <- &replicaStateUpdateRequest{updateType: 1, newDecision: in.Decision}
 	return &pb.Message{Type: EMPTY}, nil
 }

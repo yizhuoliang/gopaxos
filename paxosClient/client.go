@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"errors"
-	"strconv"
+	"sync/atomic"
 	"time"
 
 	pb "github.com/yizhuoliang/gopaxos"
@@ -32,7 +32,7 @@ const (
 
 type Client struct {
 	clientId     int32
-	commandCount int
+	commandCount uint32
 	replicaPorts []string
 	// commandChannels  map[int][]chan *pb.Message
 	// replyChannels    map[int][]chan *reply
@@ -76,17 +76,12 @@ func NewPaxosClient(clientId int, simon int, replicaPorts []string) *Client {
 	client.incrementCommandNumberChannel = make(chan int, 1)
 	client.commandNumberReplyChannel = make(chan int, 1)
 
-	go client.OperationPreperationAndCleanupRoutine()
-
 	return client
 }
 
 func (client *Client) Store(key string, value string) error {
 
-	client.incrementCommandNumberChannel <- 0
-	cNum := <-client.commandNumberReplyChannel
-
-	cid := "client" + strconv.Itoa(int(client.clientId)) + "-W" + strconv.Itoa(cNum)
+	cid := int64(atomic.AddUint32(&client.commandCount, 1))
 
 	replyChannels := make([]chan *reply, replicaNum)
 	for i := 0; i < replicaNum; i++ {
@@ -114,10 +109,7 @@ func (client *Client) Store(key string, value string) error {
 
 func (client *Client) Read(key string) (string, error) {
 
-	client.incrementCommandNumberChannel <- 0
-	cNum := <-client.commandNumberReplyChannel
-
-	cid := "client" + strconv.Itoa(int(client.clientId)) + "-R" + strconv.Itoa(cNum)
+	cid := int64(atomic.AddUint32(&client.commandCount, 1))
 
 	replyChannels := make([]chan *reply, replicaNum)
 	for i := 0; i < replicaNum; i++ {
@@ -144,14 +136,6 @@ func (client *Client) Read(key string) (string, error) {
 		return "", errors.New("all replica failed to handle")
 	}
 	return value, nil
-}
-
-func (client *Client) OperationPreperationAndCleanupRoutine() {
-	for {
-		<-client.incrementCommandNumberChannel
-		client.commandCount += 1
-		client.commandNumberReplyChannel <- client.commandCount
-	}
 }
 
 func (client *Client) TempMessengerRoutine(msg *pb.Message, replyChannel chan *reply, replicaSerial int) {

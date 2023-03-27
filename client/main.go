@@ -79,7 +79,7 @@ func main() {
 			fmt.Scanf("%s", &value)
 			// generate a new commandID
 			commandCount += 1
-			cid := "client" + strconv.Itoa(int(clientId)) + "-W" + strconv.Itoa(commandCount)
+			cid := int64(clientId)<<54 + int64(commandCount)
 			// push client commands to command buffers
 			for i := 0; i < replicaNum; i++ {
 				messageBuffers[i] <- &pb.Message{Type: WRITE, Command: &pb.Command{Type: WRITE, CommandId: cid, ClientId: clientId, Key: key, Value: value}, CommandId: cid, ClientId: clientId, Key: key, Value: value}
@@ -93,7 +93,7 @@ func main() {
 			fmt.Scanf("%s", &key)
 			// generate a new commandID
 			commandCount += 1
-			cid := "client" + strconv.Itoa(int(clientId)) + "-R" + strconv.Itoa(commandCount)
+			cid := int64(clientId)<<54 + int64(commandCount)
 			for i := 0; i < replicaNum; i++ {
 				messageBuffers[i] <- &pb.Message{Type: READ, Command: &pb.Command{Type: READ, CommandId: cid, ClientId: clientId, Key: key}}
 			}

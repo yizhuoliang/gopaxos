@@ -356,7 +356,7 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 }
 
 func CommanderRoutine(bsc *pb.BSC) {
-	fmt.Printf("Commander spawned for ballot number %d, slot number %d, command id %s\n", bsc.BallotNumber, bsc.SlotNumber, bsc.Command.CommandId)
+	fmt.Printf("Commander spawned for ballot number %d, slot number %d, command id %s\n", bsc.BallotNumber, bsc.SlotNumber, commandId2String(bsc.Command.CommandId))
 	commanderCollectChannel := make(chan *pb.P2B)
 	// send messages
 	for i := 0; i < acceptorNum; i++ {
@@ -494,6 +494,10 @@ func readPortsFile() {
 	}
 }
 
+func commandId2String(cid int64) string {
+	return strconv.FormatInt(cid>>54, 10) + strconv.FormatInt(cid%int64(1)<<54, 10)
+}
+
 // gRPC HANDLERS
 func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message, error) {
 
@@ -510,7 +514,7 @@ func (s *leaderServer) Propose(ctx context.Context, in *pb.Message) (*pb.Message
 	}
 
 	leaderStateUpdateChannel <- &leaderStateUpdateRequest{updateType: 1, newProposal: &pb.Proposal{SlotNumber: in.SlotNumber, Command: in.Command}} // Weird? Yes! Things can only be down after chekcing proposals
-	fmt.Printf("Received proposal with commandId %s and slot number %d\n", in.Command.CommandId, in.SlotNumber)
+	fmt.Printf("Received proposal with commandId %s and slot number %d\n", commandId2String(in.Command.CommandId), in.SlotNumber)
 	return &pb.Message{Type: EMPTY, Content: "success"}, nil
 }
 

@@ -27,7 +27,7 @@ message Message {
     int32 type = 1;
 
     int32 clientId = 2;
-    string commandId = 3;
+    int64 commandId = 3;
     string key = 4;
     string value = 5;
     Command command = 6;
@@ -50,7 +50,7 @@ message Message {
 message Command {
     int32 type = 1;
     int32 clientId = 2;
-    string commandId = 3;
+    int64 commandId = 3;
     string key = 4;
     string value = 5;
 }
