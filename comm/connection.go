@@ -32,7 +32,6 @@ var CONNTYPE = PIPE
 
 type RPCConnection struct {
 	mutex     *sync.RWMutex
-	reqMu     *sync.Mutex
 	cond      *sync.Cond
 	nextReqId uint64
 	// doneIds   map[uint64]interface{}
@@ -109,7 +108,6 @@ func (c *RPCConnection) Init(myId uint64, myRole uint64) *RPCConnection {
 
 	if MODE == SYNC {
 		c.mutex = &sync.RWMutex{}
-		c.reqMu = &sync.Mutex{}
 		c.cond = sync.NewCond(c.mutex)
 		c.doneIds = new(sync.Map)
 		go func() {
@@ -163,8 +161,6 @@ func (c *RPCConnection) ExtractReqId(reqbytes []byte) uint64 {
 }
 
 func (c *RPCConnection) Request(reqbytes []byte) chan bool {
-	c.reqMu.Lock()
-	defer c.reqMu.Unlock()
 	var ch chan bool = nil
 
 	if MODE == SYNC {
