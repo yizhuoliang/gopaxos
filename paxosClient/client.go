@@ -81,7 +81,7 @@ func NewPaxosClient(clientId int, simon int, replicaPorts []string) *Client {
 
 func (client *Client) Store(key string, value string) error {
 
-	cid := int64(atomic.AddUint32(&client.commandCount, 1))
+	cid := (int64(client.clientId) << 54) + int64(atomic.AddUint32(&client.commandCount, 1))
 
 	replyChannels := make([]chan *reply, replicaNum)
 	for i := 0; i < replicaNum; i++ {
@@ -109,7 +109,7 @@ func (client *Client) Store(key string, value string) error {
 
 func (client *Client) Read(key string) (string, error) {
 
-	cid := int64(atomic.AddUint32(&client.commandCount, 1))
+	cid := (int64(client.clientId) << 54) + int64(atomic.AddUint32(&client.commandCount, 1))
 
 	replyChannels := make([]chan *reply, replicaNum)
 	for i := 0; i < replicaNum; i++ {
