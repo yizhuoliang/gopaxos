@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -88,7 +87,7 @@ func serve(port string) {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	fmt.Printf("server listening at %v", lis.Addr())
+	// fmt.Printf("server listening at %v", lis.Addr())
 	server = grpc.NewServer()
 	pb.RegisterLeaderAcceptorServer(server, &acceptorServer{})
 	if err := server.Serve(lis); err != nil {
@@ -109,7 +108,7 @@ func readPortsFile() {
 			}
 		}
 	} else {
-		fmt.Printf("%v\n", err)
+		// fmt.Printf("%v\n", err)
 	}
 }
 
@@ -133,7 +132,7 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 	}
 
 	<-mutexChannel
-	fmt.Printf("Scouting received\n")
+	// fmt.Printf("Scouting received\n")
 	oldBallotNumber := ballotNumber
 	if in.BallotNumber > ballotNumber || (in.BallotNumber == ballotNumber && in.LeaderId != ballotLeader) {
 		ballotNumber = in.BallotNumber
@@ -147,7 +146,7 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 	}
 	currentBallotNumber := ballotNumber
 	currentBallotLeader := ballotLeader
-	fmt.Printf("Scouting received, current states: ballot number %d, ballot leader %d\n", ballotNumber, ballotLeader)
+	// fmt.Printf("Scouting received, current states: ballot number %d, ballot leader %d\n", ballotNumber, ballotLeader)
 	mutexChannel <- 1
 
 	// P1B sent
@@ -182,13 +181,13 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Me
 
 	<-mutexChannel
 	ballotNumber := ballotNumber // concurrency concern, avoid ballot number update during execution
-	fmt.Printf("Commanding received:  ballot number %d, ballot leader %d, comID: %s, slot: %d\n", ballotNumber, ballotLeader, commandId2String(in.Bsc.Command.CommandId), in.Bsc.SlotNumber)
+	// fmt.Printf("Commanding received:  ballot number %d, ballot leader %d, comID: %s, slot: %d\n", ballotNumber, ballotLeader, commandId2String(in.Bsc.Command.CommandId), in.Bsc.SlotNumber)
 	acceptCid := int64(-1)
 	if in.Bsc.BallotNumber >= ballotNumber && in.LeaderId == ballotLeader {
 		ballotNumber = in.Bsc.BallotNumber
 		acceptCid = in.Bsc.Command.CommandId
 		accepted[ballotNumber] = append(accepted[ballotNumber], in.Bsc)
-		fmt.Printf("Commanding accepted: ballot number %d, ballot leader %d, comID: %s, slot: %d\n", ballotNumber, ballotLeader, commandId2String(in.Bsc.Command.CommandId), in.Bsc.SlotNumber)
+		// fmt.Printf("Commanding accepted: ballot number %d, ballot leader %d, comID: %s, slot: %d\n", ballotNumber, ballotLeader, commandId2String(in.Bsc.Command.CommandId), in.Bsc.SlotNumber)
 	}
 	currentBallotNumber := ballotNumber
 	currentBallotLeader := ballotLeader
