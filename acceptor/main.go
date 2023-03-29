@@ -5,12 +5,14 @@ import (
 	"context"
 	"log"
 	"net"
+	"sync"
+
+	// _ "net/http/pprof"
 	"os"
 	"strconv"
 
 	pb "github.com/yizhuoliang/gopaxos"
 	"github.com/yizhuoliang/gopaxos/comm"
-
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
@@ -46,7 +48,7 @@ var (
 	ballotLeader int32 = -1
 	accepted     map[int32][]*pb.BSC
 
-	mutexChannel chan int32
+	mu *sync.Mutex
 
 	simc   *comm.RPCConnection
 	simon  int // 1 = on, 0 = off
@@ -58,9 +60,16 @@ type acceptorServer struct {
 }
 
 func main() {
+
 	temp, _ := strconv.Atoi(os.Args[1])
 	acceptorId = int32(temp)
 	simon, _ = strconv.Atoi(os.Args[2])
+
+	// if acceptorId == 0 {
+	// 	go func() {
+	// 		log.Println(http.ListenAndServe("localhost:6060", nil))
+	// 	}()
+	// }
 
 	// connect sim
 	if simon == 1 {
@@ -76,8 +85,7 @@ func main() {
 
 	// initialization
 	accepted = make(map[int32][]*pb.BSC)
-	mutexChannel = make(chan int32, 1)
-	mutexChannel <- 1
+	mu = &sync.Mutex{}
 	serve(acceptorPorts[acceptorId])
 }
 
@@ -131,7 +139,7 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 		simc.WaitFor(reqId, ch)
 	}
 
-	<-mutexChannel
+	mu.Lock()
 	// fmt.Printf("Scouting received\n")
 	oldBallotNumber := ballotNumber
 	if in.BallotNumber > ballotNumber || (in.BallotNumber == ballotNumber && in.LeaderId != ballotLeader) {
@@ -147,7 +155,7 @@ func (s *acceptorServer) Scouting(ctx context.Context, in *pb.Message) (*pb.Mess
 	currentBallotNumber := ballotNumber
 	currentBallotLeader := ballotLeader
 	// fmt.Printf("Scouting received, current states: ballot number %d, ballot leader %d\n", ballotNumber, ballotLeader)
-	mutexChannel <- 1
+	mu.Unlock()
 
 	// P1B sent
 	if simon >= 1 {
@@ -179,8 +187,7 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Me
 		simc.WaitFor(reqId, ch)
 	}
 
-	<-mutexChannel
-	ballotNumber := ballotNumber // concurrency concern, avoid ballot number update during execution
+	mu.Lock()
 	// fmt.Printf("Commanding received:  ballot number %d, ballot leader %d, comID: %s, slot: %d\n", ballotNumber, ballotLeader, commandId2String(in.Bsc.Command.CommandId), in.Bsc.SlotNumber)
 	acceptCid := int64(-1)
 	if in.Bsc.BallotNumber >= ballotNumber && in.LeaderId == ballotLeader {
@@ -191,7 +198,7 @@ func (s *acceptorServer) Commanding(ctx context.Context, in *pb.Message) (*pb.Me
 	}
 	currentBallotNumber := ballotNumber
 	currentBallotLeader := ballotLeader
-	mutexChannel <- 1
+	mu.Unlock()
 
 	// P2B sent
 	if simon >= 1 {

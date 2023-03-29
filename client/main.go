@@ -8,7 +8,6 @@ import (
 	"time"
 
 	pb "github.com/yizhuoliang/gopaxos"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -42,6 +41,7 @@ var (
 )
 
 func main() {
+
 	// input client id
 	temp, _ := strconv.Atoi(os.Args[1])
 	clientId = int32(temp)

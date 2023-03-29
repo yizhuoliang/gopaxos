@@ -57,6 +57,7 @@ func NewPaxosClient(clientId int, simon int, replicaPorts []string) *Client {
 		client.replicaPorts = []string{"172.17.0.7:50050", "172.17.0.8:50050"}
 	}
 
+	// overwrite if ycsb provides replica ports
 	if replicaPorts != nil {
 		for i := 0; i < replicaNum; i++ {
 			client.replicaPorts[i] = replicaPorts[i]

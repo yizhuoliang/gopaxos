@@ -5,13 +5,15 @@ import (
 	"context"
 	"log"
 	"net"
+
+	// _ "net/http/pprof"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	pb "github.com/yizhuoliang/gopaxos"
 	"github.com/yizhuoliang/gopaxos/comm"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
@@ -88,6 +90,11 @@ type leaderStateUpdateRequest struct {
 }
 
 func main() {
+
+	// go func() {
+	// 	log.Println(http.ListenAndServe("localhost:6061", nil))
+	// }()
+
 	temp, _ := strconv.Atoi(os.Args[1])
 	leaderId = int32(temp)
 	simon, _ = strconv.Atoi(os.Args[2])
@@ -127,8 +134,9 @@ func main() {
 	// spawn the initial Scout
 	go ScoutRoutine(ballotNumber, false)
 
-	preventExit := make(chan int)
-	<-preventExit
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	wg.Wait()
 }
 
 func serve(port string) {
@@ -356,7 +364,7 @@ func ScoutMessenger(serial int, scoutCollectChannel chan *pb.P1B, scoutBallotNum
 
 func CommanderRoutine(bsc *pb.BSC) {
 	// fmt.Printf("Commander spawned for ballot number %d, slot number %d, command id %s\n", bsc.BallotNumber, bsc.SlotNumber, commandId2String(bsc.Command.CommandId))
-	commanderCollectChannel := make(chan *pb.P2B)
+	commanderCollectChannel := make(chan *pb.P2B, acceptorNum)
 	// send messages
 	for i := 0; i < acceptorNum; i++ {
 		go CommanderMessenger(i, bsc, commanderCollectChannel)

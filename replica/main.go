@@ -5,18 +5,21 @@ import (
 	"context"
 	"log"
 	"net"
+
+	// _ "net/http/pprof"
 	"os"
 	"strconv"
 	"sync"
 	"time"
 
 	pb "github.com/yizhuoliang/gopaxos"
-	// "github.com/yizhuoliang/gopaxos/comm"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	// "google.golang.org/protobuf/proto"
 )
+
+// "github.com/yizhuoliang/gopaxos/comm"
+
+// "google.golang.org/protobuf/proto"
 
 const (
 	WINDOW = 2000
@@ -60,7 +63,6 @@ var (
 
 	replicaStateUpdateChannel chan *replicaStateUpdateRequest
 	notificationChannel       [leaderNum]chan *pb.Message
-	slotInUpdateChannel       [leaderNum]chan int
 
 	// Yeah, this is the key-value map
 	keyValueLog map[string]string
@@ -83,6 +85,11 @@ type replicaStateUpdateRequest struct {
 }
 
 func main() {
+
+	// go func() {
+	// 	log.Println(http.ListenAndServe("localhost:6062", nil))
+	// }()
+
 	temp, _ := strconv.Atoi(os.Args[1])
 	replicaId = int32(temp)
 	simon, _ = strconv.Atoi(os.Args[2])
@@ -110,7 +117,6 @@ func main() {
 	newCommandsChannel = make(chan *pb.Command, 1)
 	for i := 0; i < leaderNum; i++ {
 		notificationChannel[i] = make(chan *pb.Message, 1)
-		slotInUpdateChannel[i] = make(chan int, 1)
 	}
 
 	// go!
@@ -211,23 +217,24 @@ func ReplicaStateUpdateRoutine() {
 }
 
 func MessengerRoutine(serial int) {
+	conn, err := grpc.Dial(leaderPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		for {
+			<-notificationChannel[serial]
+		}
+	}
+	defer conn.Close()
+	c := pb.NewReplicaLeaderClient(conn)
+
 	for {
 		// reset connection for each message
 		msgTosend := <-notificationChannel[serial]
-		conn, err := grpc.Dial(leaderPorts[serial], grpc.WithTransportCredentials(insecure.NewCredentials()))
-
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		_, err := c.Propose(ctx, msgTosend)
 		if err != nil {
-			// fmt.Printf("failed to connect: %v\n", err)
-		} else {
-			c := pb.NewReplicaLeaderClient(conn)
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			_, err := c.Propose(ctx, msgTosend)
-			if err != nil {
-				// fmt.Printf("failed to propose: %v\n", err)
-				cancel()
-			}
+			// fmt.Printf("failed to propose: %v\n", err)
+			cancel()
 		}
-		conn.Close()
 	}
 }
 
