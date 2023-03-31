@@ -54,6 +54,8 @@ func main() {
 		replicaPorts = []string{"172.17.0.6:50050", "172.17.0.5:50050"}
 	}
 
+	readPortsFile()
+
 	// initialize command channels for messenger routines
 	for i := 0; i < replicaNum; i++ {
 		messageBuffers[i] = make(chan *pb.Message, 1)
