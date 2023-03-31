@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -108,6 +109,23 @@ func main() {
 				<-IOBlockChannel
 			}
 		}
+	}
+}
+
+func readPortsFile() {
+	f, err := os.Open("./ports.txt")
+	// if reading failed, do nothing
+	if err == nil {
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for i := 0; i < 7; i++ {
+			scanner.Scan()
+			if i <= 1 {
+				replicaPorts[i] = scanner.Text()
+			}
+		}
+	} else {
+		// fmt.Printf("%v\n", err)
 	}
 }
 
