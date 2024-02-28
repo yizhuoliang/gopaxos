@@ -1,5 +1,5 @@
 # Implementing multi-paxos with gRPC framework
-Another system we built - [ZooKeeper Atomic Broadcast](https://github.com/Rxu64/gozab)
+Another system we built - [ZooKeeper Atomic Broadcast written in Go](https://github.com/Rxu64/gozab)
 
 ## System Structure
 ![structure.png](./structure.png)
